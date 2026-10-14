@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подбор режимов MIG/MAG</title>
+<style>
+html,body{margin:0}
+[hidden]{display:none!important}
+
+/* Layout: two-column workbench — inputs on the left (sticky on wide screens), calculated card on the right; stacks on phones */
+:root{
+  --bg:#ECEFF2; --surface:#FFFFFF; --ink:#18212A; --muted:#58646F; --line:#D3DAE0;
+  --steel:#3B5870; --plate:#C9D3DC; --accent:#B4621A; --weld1:#E7A35E; --weld2:#D4843A; --root:#9C4E12;
+  --ok:#2F7A4B; --warn:#A8670E; --bad:#B23A2E; --warnbg:#FBF1E2; --badbg:#FBE8E5;
+  --display:"Bahnschrift","Segoe UI Variable Display","Segoe UI",sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161B; --surface:#192129; --ink:#E5EAEE; --muted:#97A3AE; --line:#2B3640;
+  --steel:#8FB1CD; --plate:#34434F; --accent:#F0A04B; --weld1:#C9792F; --weld2:#A9601F; --root:#E8B27A;
+  --ok:#6CC08C; --warn:#E9B25C; --bad:#F08878; --warnbg:#2E2516; --badbg:#33201D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161B; --surface:#192129; --ink:#E5EAEE; --muted:#97A3AE; --line:#2B3640;
+  --steel:#8FB1CD; --plate:#34434F; --accent:#F0A04B; --weld1:#C9792F; --weld2:#A9601F; --root:#E8B27A;
+  --ok:#6CC08C; --warn:#E9B25C; --bad:#F08878; --warnbg:#2E2516; --badbg:#33201D; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:28px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:24px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--display);font-weight:600;font-stretch:condensed;font-size:clamp(24px,4vw,34px);line-height:1.1;margin:6px 0 0;text-wrap:balance}
+.sub{color:var(--muted);max-width:60ch;margin:8px 0 0}
+.badge{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:4px;padding:4px 8px;color:var(--muted);background:var(--surface)}
+
+.grid{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px}
+aside.panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+@media (max-width:880px){aside.panel{position:static}}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:10px}
+fieldset+fieldset{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+legend{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0;margin-bottom:10px}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+label.chk{display:flex;align-items:flex-start;gap:8px;color:var(--ink)}
+label.chk input{width:auto;margin-top:3px;accent-color:var(--steel)}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.chem{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.chem label{font-size:11px;font-family:var(--mono)}
+.chem input{padding:6px 2px;font-size:12px;text-align:center;-moz-appearance:textfield}
+.chem input::-webkit-outer-spin-button,.chem input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input,select{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px 10px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{flex:1 1 auto;font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--surface)}
+.hint{font-size:12px;color:var(--muted)}
+
+main{display:grid;gap:20px;min-width:0}
+.summary{display:flex;flex-wrap:wrap;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kv{flex:1 1 150px;background:var(--surface);padding:14px 16px;display:grid;gap:2px;align-content:start}
+.kv .k{font-size:12px;color:var(--muted)}
+.kv .v{font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.kv .v small{font-size:12px;font-weight:400;color:var(--muted);margin-left:3px}
+.kv .n{font-size:12px;color:var(--muted)}
+
+.split{display:grid;grid-template-columns:minmax(0,0.8fr) minmax(0,1.4fr);gap:20px}
+@media (max-width:1060px){.split{grid-template-columns:minmax(0,1fr)}}
+h2{font-family:var(--display);font-weight:500;font-size:16px;margin:0 0 12px}
+.sketch svg{width:100%;height:auto;display:block}
+.sketch .cap{font-size:12px;color:var(--muted);margin-top:8px}
+.tag{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:4px;background:var(--bg);border:1px solid var(--line);color:var(--ink)}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+th{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,th:nth-child(2),td:first-child,td:nth-child(2){text-align:left}
+td{padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);white-space:nowrap}
+td.t{font-family:var(--body)}
+td .m{display:block;font-size:11px;color:var(--muted);font-family:var(--body)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+.alerts{display:grid;gap:8px}
+.alert{font-size:14px;padding:10px 12px;border-radius:6px;border-left:3px solid var(--warn);background:var(--warnbg)}
+.alert.bad{border-color:var(--bad);background:var(--badbg)}
+.alert.ok{border-color:var(--ok);background:var(--bg)}
+
+
+.ref{display:grid;gap:14px}
+.refhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.refhead h2{margin:0}
+.refgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}
+.wps{border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:8px;align-content:start;min-width:0}
+.wps.best{border-color:var(--steel)}
+.wps h3{font-family:var(--mono);font-size:14px;font-weight:600;margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.wps .meta{font-size:12px;color:var(--muted);display:grid;gap:2px}
+.chip{font-family:var(--body);font-size:11px;font-weight:500;padding:1px 7px;border-radius:10px;border:1px solid currentColor}
+.chip.ok{color:var(--ok)} .chip.warn{color:var(--warn)} .chip.bad{color:var(--bad)} .chip.n{color:var(--muted)}
+.wps table{font-size:12px} .wps td,.wps th{padding:4px 5px}
+.cmp{font-size:12px;color:var(--muted)}
+.cmp b{font-family:var(--mono);color:var(--ink);font-weight:600}
+
+.hdr-right{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
+.tools{display:flex;gap:6px}
+.btn{font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:5px;border:1px solid var(--steel);background:var(--steel);color:var(--surface);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--steel)}
+.btn:hover{filter:brightness(1.1)}
+.printin{display:none;font-size:11px;color:var(--ink);margin-top:6px;line-height:1.6}
+.printin b{font-family:var(--mono);font-weight:600}
+.printtag{display:none}
+@media print{
+  :root{--bg:#fff;--surface:#fff}
+  @page{size:A4;margin:10mm}
+  body{font-size:10.5px}
+  .wrap{padding:0;max-width:none}
+  header{margin-bottom:10px}
+  aside,.tools,.sub,.badge,details,#refPanel .hint{display:none!important}
+  .grid{display:block}
+  main{gap:10px}
+  .panel{padding:10px}
+  .split{grid-template-columns:1fr;gap:10px}
+  .sketch svg{max-height:60mm;width:auto;margin:0 auto}
+  .tablewrap{overflow:visible}
+  .refgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .wps{padding:8px;break-inside:avoid}
+  .kv{padding:8px 10px}.kv .v{font-size:15px}
+  table{font-size:10px} td,th{padding:4px 5px}
+  .printtag,.printin{display:block}
+  section.panel:has(details){display:none}
+  h1{font-size:20px}
+}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:600}
+.method{display:grid;gap:10px;margin-top:10px;font-size:14px;max-width:80ch}
+.method code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:1px 5px;border-radius:3px}
+.foot{font-size:12px;color:var(--muted);margin-top:4px;max-width:80ch}
+@media (prefers-reduced-motion:no-preference){.band{transition:opacity .2s}}
+/* роли и справочники */
+.rolebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.role{font-family:var(--mono);font-size:12px;padding:4px 10px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.role.admin{border-color:var(--accent);color:var(--accent);font-weight:600}
+input[readonly]{background:transparent;border-style:dashed;color:var(--muted);cursor:not-allowed}
+.lockhint{font-size:12px;color:var(--muted)}
+.lockhint b{color:var(--ink);font-weight:600}
+#chemBlock[hidden]{display:none}
+td input.ov{width:64px;padding:3px 5px;font-size:13px;text-align:right;font-family:var(--mono);background:var(--bg)}
+td input.ov.set{border-color:var(--accent);color:var(--accent);font-weight:600}
+.ovbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--accent);margin-top:6px}
+.linkbtn{font:inherit;font-size:12px;background:none;border:0;color:var(--steel);text-decoration:underline;cursor:pointer;padding:0}
+
+/* модальные окна */
+.modal{position:fixed;inset:0;background:rgb(10 16 22 / .45);display:grid;place-items:center;z-index:50;padding:16px}
+.modal[hidden]{display:none}
+.dlg{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;width:min(100%,380px);padding:20px;display:grid;gap:12px;box-shadow:0 20px 60px rgb(0 0 0 / .25)}
+.dlg h3{font-family:var(--display);font-size:17px;margin:0}
+.dlg .row-btn{display:flex;gap:8px;justify-content:flex-end}
+.err{color:var(--bad);font-size:13px;min-height:1.2em}
+
+/* панель справочников */
+.admin-panel{display:grid;gap:14px}
+.admin-panel[hidden]{display:none}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{font:inherit;font-size:13px;padding:8px 12px;border:1px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;background:none;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--bg);border-color:var(--line);color:var(--ink);font-weight:600}
+.tabbody{display:grid;gap:12px}
+.dict{border-collapse:collapse;width:100%;font-size:13px}
+.dict th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:400;text-align:left;padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.dict td{padding:3px 4px;border-bottom:1px solid var(--line);text-align:left;font-family:var(--body);white-space:normal}
+.dict input,.dict select{padding:4px 6px;font-size:13px;background:var(--bg);min-width:0}
+.dict input.n{width:80px;font-family:var(--mono);text-align:right;-moz-appearance:textfield}
+.dict input.n::-webkit-outer-spin-button,.dict input.n::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.dict input.w{min-width:180px}
+.dict td.cls{white-space:nowrap}
+.dict .del{font:inherit;border:0;background:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:12px}
+.cbox{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px;align-content:start}
+.cbox h4{margin:0;font-size:14px;font-family:var(--display);font-weight:600}
+.kvgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.kvgrid label{font-size:11px}
+.kvgrid input{padding:5px 6px;font-size:13px;font-family:var(--mono)}
+.savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.savebar .msg{font-size:13px;color:var(--ok)}
+.clsnote{font-size:12px;color:var(--muted)}
+.hdrmsg{font-size:13px;max-width:46ch;text-align:right}
+@media (max-width:700px){
+  header{align-items:flex-start}
+  .hdr-right{justify-content:flex-start}
+  .hdrmsg{text-align:left}
+  .btn{padding:8px 12px}
+  .kvgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wrap{padding-block:16px 32px}
+  .sub{display:none}
+  h1{font-size:24px}
+  input,select{font-size:16px}
+  .chem input{font-size:13px}
+}
+@media print{ .rolebar,.hdrmsg{display:none!important} }
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Режимы MIG/MAG">
+<meta name="theme-color" content="#3B5870">
+<script>window.PODBOR_PWA=true;if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});</script>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Технический отдел</div>
+      <h1>Подбор режимов MIG/MAG-сварки</h1>
+      <div class="printtag" id="printTag"></div>
+      <div class="printin" id="printIn"></div>
+      <p class="sub">Материал, разделка и положение на входе. На выходе схема проходов, режимы для каждого прохода, погонная энергия, подогрев и расход материалов.</p>
+    </div>
+    <div class="hdr-right">
+      <span class="badge" id="procBadge"></span>
+      <div class="rolebar">
+        <span class="role" id="roleChip">Пользователь</span>
+        <button type="button" class="btn ghost" id="btnLogin">Войти как администратор</button>
+        <button type="button" class="btn ghost" id="btnDict" hidden>Справочники</button>
+        <button type="button" class="btn ghost" id="btnLogout" hidden>Выйти</button>
+        <button type="button" class="btn ghost" id="btnImport" title="Загрузить справочники из файла settings.json">Загрузить справочники</button>
+        <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
+      </div>
+      <span class="hdrmsg" id="hdrMsg" role="status"></span>
+      <div class="tools" id="tools" hidden>
+        <button type="button" class="btn" id="btnPdf">Печать / PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel admin-panel" id="adminPanel" hidden aria-label="Справочники">
+    <div class="refhead"><h2>Справочники</h2><span class="hint" id="storeInfo"></span></div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button type="button" role="tab" data-t="mat" aria-selected="true">Материалы</button>
+      <button type="button" role="tab" data-t="reg">Режимы</button>
+      <button type="button" role="tab" data-t="geo">Разделки</button>
+      <button type="button" role="tab" data-t="acc">Доступ</button>
+    </div>
+    <div class="tabbody" id="tabBody"></div>
+    <div class="savebar">
+      <button type="button" class="btn" id="btnSave">Сохранить справочники</button>
+      <button type="button" class="btn ghost" id="btnRevert">Отменить изменения</button>
+      <button type="button" class="btn ghost" id="btnExport" hidden>Сохранить копию рядом с программой</button>
+      <button type="button" class="btn ghost" id="btnFactory">Заводские настройки</button>
+      <span class="msg" id="saveMsg"></span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <aside class="panel" aria-label="Исходные данные">
+      <fieldset>
+        <legend>Изделие</legend>
+        <label>Обозначение шва / изделия<input type="text" id="tag" placeholder="например, Балка Б-12, шов 3"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Металл</legend>
+        <div class="seg" id="clsSeg" role="group" aria-label="Группа материала">
+          <button type="button" data-v="steel">Сталь</button>
+          <button type="button" data-v="ss">Нержавеющая</button>
+          <button type="button" data-v="al">Алюминий</button>
+        </div>
+        <label>Марка
+          <select id="steel"></select>
+        </label>
+        <div id="chemBlock">
+          <div class="chem" id="chem"></div>
+          <span class="hint" id="chemHint">Химсостав, %. Подставлен типовой для марки.</span>
+        </div>
+        <span class="hint" id="matInfo"></span>
+        <label>Толщина s, мм
+          <input type="number" id="s" min="1" max="60" step="0.5" value="12">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Соединение</legend>
+        <div class="seg" id="joint" role="group" aria-label="Тип соединения">
+          <button type="button" data-v="I">I · без скоса</button>
+          <button type="button" data-v="V">V · односторон.</button>
+          <button type="button" data-v="X">X · двусторон.</button>
+          <button type="button" data-v="T1">Тавр, 1 шов</button>
+          <button type="button" data-v="T3">Тавр, 2 шва</button>
+        </div>
+        <div class="row" id="grooveRow">
+          <label><span id="alphaLbl">Угол α, °</span><input type="number" id="alpha" min="20" max="90" step="1"></label>
+          <label>Зазор b, мм<input type="number" id="b" min="0" max="6" step="0.5"></label>
+          <label>Притупл. c<input type="number" id="c" min="0" max="6" step="0.5"></label>
+        </div>
+        <span class="lockhint" id="lockHint"></span>
+        <label id="sealRow" class="chk"><input type="checkbox" id="seal" checked> Подварочный шов с обратной стороны (после выборки корня)</label>
+        <label id="bevelRow" class="chk"><input type="checkbox" id="bevel"> Скос кромки стенки (по умолчанию включается при s &gt; 8 мм)</label>
+        <label id="sealTRow" class="chk"><input type="checkbox" id="sealT"> Подварочный шов с обратной стороны (после выборки корня)</label>
+        <label id="kRow"><span id="kLbl">Катет k, мм</span><input type="number" id="k" min="2" max="20" step="1"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Процесс</legend>
+        <label>Положение
+          <select id="pos">
+            <option value="PA">PA · нижнее (стык)</option>
+            <option value="PB">PB · нижнее (угловой)</option>
+            <option value="PC">PC · горизонтальное</option>
+            <option value="PF">PF · вертикальное снизу вверх</option>
+          </select>
+        </label>
+        <div class="row2">
+          <label>Проволока, мм
+            <select id="wire"></select>
+          </label>
+          <label>Газ
+            <select id="gas"></select>
+          </label>
+        </div>
+        <label>Длина шва, м
+          <input type="number" id="len" min="0.1" step="0.1" value="1">
+        </label>
+      </fieldset>
+    </aside>
+
+    <main>
+      <div class="summary" id="summary"></div>
+      <div class="alerts" id="alerts"></div>
+
+      <div class="split">
+        <section class="panel sketch">
+          <h2>Сечение и порядок проходов</h2>
+          <div id="sketch"></div>
+          <div class="cap" id="sketchCap"></div>
+        </section>
+        <section class="panel">
+          <h2>Режимы по проходам</h2>
+          <div class="tablewrap"><table id="passes"></table></div>
+          <div class="ovbar" id="ovBar" hidden><span>Режимы изменены администратором вручную.</span><button type="button" class="linkbtn" id="ovReset">Вернуть расчётные</button></div>
+          <p class="foot" id="transfer"></p>
+        </section>
+      </div>
+
+      <section class="panel ref" id="refPanel">
+        <div class="refhead">
+          <h2>Аттестованные WPS из базы EWM</h2>
+          <span class="hint" id="refCount"></span>
+        </div>
+        <div id="refNote" class="alerts"></div>
+        <div class="refgrid" id="refList"></div>
+      </section>
+
+      <section class="panel">
+        <details>
+          <summary>Как считается</summary>
+          <div class="method">
+            <p><b>Геометрия.</b> Площадь наплавленного металла считается по форме разделки: зазор <code>b·s</code>, скосы <code>(s−c)²·tg(α/2)</code>, усиление <code>0,73·e·g</code>, где e — ширина шва, g — высота усиления. Для углового шва <code>1,15·k²/2</code> с учётом выпуклости, для тавра со скосом добавляется треугольник скоса.</p>
+            <p><b>Проходы.</b> Площадь корневого прохода и заполняющего прохода по положениям берутся из справочника режимов для выбранной группы материала и диаметра проволоки.</p>
+            <p><b>Режимы.</b> Ток прохода берётся из справочника по типу прохода и положению и ограничивается на тонком металле. Скорость подачи и напряжение — линейные синергетические зависимости <code>Vпп = a·I + b</code>, <code>U = c + e·I</code> из справочника; для сталей они получены по 34 проходам аттестованных WPS EWM. Скорость сварки выводится из баланса металла: <code>v = Vпп·Sпров·η / Sпрохода</code>.</p>
+            <p><b>Погонная энергия</b> по EN 1011-1: <code>Q = 0,8·U·I / v</code>, кДж/мм.</p>
+            <p><b>Подогрев.</b> Для сталей — метод CET (EN 1011-2, прил. C) с HD = 4 мл/100 г; если в справочнике материала задан минимальный подогрев, берётся большее значение. Для нержавеющих сталей подогрев не нужен, контролируется межпроходная температура. Для алюминия рекомендуется подогрев 60–100 °C при толщине от 15 мм.</p>
+            <p><b>Расход.</b> Масса наплавки = площадь × плотность материала (сталь 7,85, нержавеющая 7,9, алюминий 2,7 г/см³) с учётом коэффициента использования проволоки.</p>
+            <p class="foot">Все значения ориентировочные и служат стартовой точкой. Рабочие режимы подтверждаются пробной сваркой и аттестацией технологии (pWPS → WPQR по ISO 15614-1/-2 или по правилам НАКС).</p>
+          </div>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="loginModal" hidden>
+    <form class="dlg" id="loginForm" autocomplete="off">
+      <h3>Вход администратора</h3>
+      <label>Пароль<input type="password" id="loginPw" autocomplete="current-password"></label>
+      <div class="err" id="loginErr"></div>
+      <div class="row-btn">
+        <button type="button" class="btn ghost" id="loginCancel">Отмена</button>
+        <button type="submit" class="btn">Войти</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script id="ewmData" type="application/json">{"wps":[{"n":"153-1","k":"B","t":10.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-001-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","rootArc",1.0,[100.0,115.0],[17.0,18.0],3.8,[17.0,17.0],[0.48,0.584],"206"],[2,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[60.0,60.0],[0.582,0.672],"180"],[3,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[50.0,50.0],[0.699,0.806],"180"]]},{"n":"154-2","k":"B","t":10.0,"pos":"PA","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-002-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[270.0,290.0],[28.0,29.0],10.5,[32.0,32.0],[1.134,1.262],"180"],[2,"","forceArc",1.2,[290.0,310.0],[29.0,31.0],11.0,[42.0,42.0],[0.961,1.098],"180"]]},{"n":"164-1","k":"B","t":10.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":3.0,"fl":15.0,"wpqr":["01 202 644-V-220098-012-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ","ps":[[1,"","coldArc",1.0,[95.0,110.0],[18.0,20.0],4.0,[8.0,8.0],[1.026,1.32],"193"],[2,"","forceArc",1.2,[270.0,290.0],[28.0,30.0],9.5,[55.0,55.0],[0.66,0.759],"180"],[3,"","forceArc puls",1.2,[170.0,190.0],[23.0,25.0],6.0,[45.0,45.0],[0.417,0.507],"180"]]},{"n":"153","k":"B","t":12.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-001-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","rootArc",1.0,[100.0,115.0],[17.0,18.0],3.8,[17.0,17.0],null,"206"],[2,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[60.0,60.0],null,"180"],[3,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[50.0,50.0],null,"180"],[4,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[55.0,55.0],null,"180"],[5,"","forceArc",1.2,[260.0,280.0],[28.0,30.0],9.5,[55.0,55.0],null,"180"]]},{"n":"154","k":"B","t":12.0,"pos":"PA","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-002-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[270.0,290.0],[28.0,29.0],10.5,[27.0,27.0],[1.344,1.495],"180"],[2,"","forceArc",1.2,[310.0,330.0],[29.0,31.0],12.5,[44.0,44.0],[0.981,1.116],"180"],[3,"","forceArc",1.2,[280.0,300.0],[29.0,31.0],11.0,[40.0,40.0],[0.974,1.116],"180"]]},{"n":"164","k":"B","t":12.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":3.0,"fl":15.0,"wpqr":["01 202 644-V-220098-012-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ","ps":[[1,"","coldArc",1.0,[95.0,110.0],[18.0,20.0],4.0,[8.0,8.0],[1.026,1.32],"193"],[2,"","forceArc",1.2,[270.0,290.0],[28.0,30.0],9.5,[45.0,45.0],[0.806,0.928],"180"],[3,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"],[4,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"]]},{"n":"154-3","k":"B","t":15.0,"pos":"PA","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-002-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[280.0,300.0],[29.0,31.0],10.5,[35.0,35.0],[1.114,1.275],"180"],[2,"","forceArc",1.2,[310.0,330.0],[29.0,31.0],12.5,[45.0,45.0],[0.959,1.091],"180"],[3,"","forceArc",1.2,[310.0,330.0],[29.0,31.0],12.5,[45.0,45.0],[0.959,1.091],"180"],[4,"","forceArc",1.2,[290.0,310.0],[28.0,30.0],11.0,[45.0,45.0],[0.866,0.992],"180"]]},{"n":"164-2","k":"B","t":15.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":3.0,"fl":15.0,"wpqr":["01 202 644-V-220098-012-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ","ps":[[1,"","coldArc",1.0,[95.0,110.0],[18.0,20.0],4.0,[8.0,8.0],[1.026,1.32],"193"],[2,"","forceArc",1.2,[270.0,290.0],[28.0,30.0],9.5,[45.0,45.0],[0.806,0.928],"180"],[3,"","forceArc puls",1.2,[270.0,290.0],[28.0,30.0],9.5,[45.0,45.0],[0.806,0.928],"180"],[4,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"],[5,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"]]},{"n":"154-4","k":"B","t":18.0,"pos":"PA","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":2.0,"fl":15.0,"wpqr":["01 202 644-V-220098-002-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[280.0,300.0],[29.0,31.0],10.5,[35.0,35.0],[1.114,1.275],"180"],[2,"","forceArc",1.2,[310.0,330.0],[29.0,31.0],12.5,[45.0,45.0],[0.959,1.091],"180"],[3,"","forceArc",1.2,[310.0,330.0],[29.0,31.0],12.5,[45.0,45.0],[0.959,1.091],"180"],[4,"","forceArc",1.2,[290.0,310.0],[28.0,30.0],11.0,[45.0,45.0],[0.866,0.992],"180"],[5,"","forceArc",1.2,[290.0,310.0],[28.0,30.0],11.0,[45.0,45.0],[0.866,0.992],"180"]]},{"n":"164-3","k":"B","t":20.0,"pos":"PA","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":3.0,"fl":15.0,"wpqr":["01 202 644-V-220098-012-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ","ps":[[1,"","coldArc",1.0,[95.0,110.0],[18.0,20.0],4.0,[8.0,8.0],[1.026,1.32],"193"],[2,"","forceArc",1.2,[270.0,290.0],[28.0,30.0],9.5,[45.0,45.0],[0.806,0.928],"180"],[3,"","forceArc puls",1.2,[270.0,290.0],[28.0,30.0],9.5,[40.0,40.0],[0.907,1.044],"180"],[4,"","forceArc puls",1.2,[270.0,290.0],[28.0,30.0],9.5,[35.0,35.0],[1.037,1.193],"180"],[5,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"],[6,"","forceArc puls",1.2,[175.0,195.0],[24.0,26.0],6.5,[35.0,35.0],[0.576,0.695],"180"]]},{"n":"135-PBW-t10-PF-ml","k":"B","t":10.0,"pos":"PF","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":5.0,"fl":25.0,"wpqr":["226 715 14 084-06"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[75.0,95.0],[16.5,18.5],2.5,[7.0,7.0],[0.849,1.173],"9"],[2,"fill","Standard",1.2,[90.0,110.0],[18.5,20.5],3.0,[6.0,6.0],[1.332,1.76],"9"],[3,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"]]},{"n":"135-PBW-t12-PF-ml","k":"B","t":12.0,"pos":"PF","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":5.0,"fl":25.0,"wpqr":["226 715 14 084-06"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[75.0,95.0],[16.5,18.5],2.5,[7.0,7.0],[0.849,1.173],"9"],[2,"fill","Standard",1.2,[90.0,110.0],[18.5,20.5],3.0,[6.0,6.0],[1.332,1.76],"9"],[3,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"]]},{"n":"135-PBW-t15-PF-ml","k":"B","t":15.0,"pos":"PF","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":5.0,"fl":25.0,"wpqr":["226 715 14 084-06"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[75.0,95.0],[16.5,18.5],2.5,[7.0,7.0],[0.849,1.173],"9"],[2,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"],[3,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"]]},{"n":"135-PBW-t18-PF-ml","k":"B","t":18.0,"pos":"PF","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":5.0,"fl":25.0,"wpqr":["226 715 14 084-06"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[75.0,95.0],[16.5,18.5],2.5,[7.0,7.0],[0.849,1.173],"9"],[2,"cap","Standard",1.2,[90.0,110.0],[18.0,20.0],3.0,[6.0,6.0],[1.296,1.76],"9"],[3,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"],[4,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"]]},{"n":"135-PBW-t20-PF-ml","k":"B","t":20.0,"pos":"PF","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":5.0,"fl":25.0,"wpqr":["226 715 14 084-06"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[75.0,95.0],[16.5,18.5],2.5,[7.0,7.0],[0.849,1.173],"9"],[2,"cap","Standard",1.2,[90.0,110.0],[18.0,20.0],3.0,[6.0,6.0],[1.296,1.76],"9"],[3,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"],[4,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"],[5,"cap","Standard",1.2,[110.0,130.0],[19.5,21.0],3.5,[6.0,6.0],[1.716,2.184],"9"]]},{"n":"157-3","k":"F","t":2.0,"pos":"PA","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-006-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[100.0,115.0],[16.0,18.0],4.0,[35.0,35.0],[0.219,0.284],"8"]]},{"n":"157-4","k":"F","t":3.0,"pos":"PA","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-006-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[130.0,145.0],[17.0,19.0],4.0,[45.0,45.0],[0.236,0.294],"8"]]},{"n":"158-3","k":"F","t":6.0,"pos":"PA","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-005-12"],"ip":"300","ph":"RT","bead":"","rem":"","ps":[[1,"","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,40.0],[1.116,1.267],"9"]]},{"n":"158-4","k":"F","t":7.0,"pos":"PA","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-005-12"],"ip":"300","ph":"RT","bead":"","rem":"","ps":[[1,"","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,40.0],[1.116,1.267],"9"]]},{"n":"135-PFW-t10-PA-sl","k":"F","t":10.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"135-PFW-t12-PA-ml","k":"F","t":12.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t12-PA-sl","k":"F","t":12.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"135-PFW-t15-PA-ml","k":"F","t":15.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t15-PA-sl","k":"F","t":15.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.5,32.5],11.5,[42.0,45.0],[1.009,1.207],"9"]]},{"n":"135-PFW-t18-PA-ml","k":"F","t":18.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t18-PA-sl","k":"F","t":18.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.5,32.5],11.5,[40.0,42.0],[1.081,1.267],"9"]]},{"n":"135-PFW-t20-PA-ml","k":"F","t":20.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"]]},{"n":"135-PFW-t20-PA-sl","k":"F","t":20.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,42.0],[1.063,1.267],"9"]]},{"n":"135-PFW-t25-PA-ml","k":"F","t":25.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"]]},{"n":"135-PFW-t25-PA-sl","k":"F","t":25.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,42.0],[1.063,1.267],"9"]]},{"n":"135-PFW-t30-PA-ml","k":"F","t":30.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"]]},{"n":"135-PFW-t30-PA-sl","k":"F","t":30.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,42.0],[1.063,1.267],"9"]]},{"n":"135-PFW-t40-PA-ml","k":"F","t":40.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[4,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[5,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[6,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"]]},{"n":"135-PFW-t50-PA-ml","k":"F","t":50.0,"pos":"PA","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[4,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[5,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"],[6,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[37.0,42.0],[0.928,1.206],"9"]]},{"n":"167","k":"F","t":1.0,"pos":"PB","d":null,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-009-12"],"ip":"300","ph":"","bead":"","rem":"","ps":[]},{"n":"157-1","k":"F","t":1.5,"pos":"PB","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-006-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[100.0,115.0],[15.0,17.0],4.0,[40.0,40.0],[0.18,0.235],"8"]]},{"n":"161-1","k":"F","t":1.5,"pos":"PB","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-009-12"],"ip":"300","ph":"","bead":"","rem":"","ps":[[1,"","Standard",1.0,[85.0,105.0],[19.0,21.0],4.0,[40.0,40.0],[0.194,0.265],"8"]]},{"n":"157","k":"F","t":2.0,"pos":"PB","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-006-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[100.0,115.0],[16.0,18.0],4.0,[35.0,35.0],[0.219,0.284],"8"]]},{"n":"161","k":"F","t":2.0,"pos":"PB","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-009-12"],"ip":"300","ph":"","bead":"","rem":"","ps":[[1,"","Standard",1.0,[95.0,115.0],[20.0,22.0],4.5,[30.0,30.0],[0.304,0.405],"8"]]},{"n":"161-2","k":"F","t":3.0,"pos":"PB","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-009-12"],"ip":"300","ph":"","bead":"","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","Standard",1.0,[105.0,125.0],[21.0,23.0],5.5,[40.0,40.0],[0.265,0.345],"8"]]},{"n":"155-1-1","k":"F","t":4.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 9); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[220.0,240.0],[22.0,24.0],8.0,[45.0,45.0],[0.516,0.614],"9"]]},{"n":"155-4-1","k":"F","t":4.0,"pos":"PB","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 8); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[240.0,260.0],[25.0,27.0],13.0,[42.0,42.0],[0.686,0.802],"8"]]},{"n":"162-1","k":"F","t":4.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-010-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[40.0,40.0],[0.749,0.874],"9"]]},{"n":"155-1","k":"F","t":5.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 9); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[250.0,270.0],[24.5,26.5],8.5,[55.0,55.0],[0.535,0.613],"9"]]},{"n":"155-4","k":"F","t":5.0,"pos":"PB","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 8); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[240.0,260.0],[28.0,30.0],13.0,[55.0,55.0],[0.586,0.681],"8"]]},{"n":"158-1","k":"F","t":5.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-005-12"],"ip":"300","ph":"RT","bead":"","rem":"","ps":[[1,"","Standard",1.2,[290.0,310.0],[29.0,31.0],10.5,[45.0,45.0],[0.897,1.025],"9"]]},{"n":"162-2","k":"F","t":5.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-010-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[40.0,40.0],[0.749,0.874],"9"]]},{"n":"155","k":"F","t":6.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 9); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[250.0,270.0],[24.5,26.5],8.5,[45.0,45.0],[0.653,0.749],"9"]]},{"n":"155-3","k":"F","t":6.0,"pos":"PB","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 8); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[240.0,260.0],[28.0,30.0],13.0,[45.0,45.0],[0.717,0.832],"8"]]},{"n":"158","k":"F","t":6.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-005-12"],"ip":"300","ph":"RT","bead":"","rem":"","ps":[[1,"","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,40.0],[1.116,1.267],"9"]]},{"n":"162","k":"F","t":6.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-010-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[35.0,35.0],[0.856,0.998],"9"]]},{"n":"155-2","k":"F","t":7.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 9); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[250.0,270.0],[24.5,26.5],8.5,[40.0,40.0],[0.735,0.842],"9"]]},{"n":"155-5","k":"F","t":7.0,"pos":"PB","d":1.0,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-003-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Standard (Job 8); AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.0,[240.0,260.0],[28.0,30.0],13.0,[40.0,40.0],[0.806,0.936],"8"]]},{"n":"158-2","k":"F","t":7.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-005-12"],"ip":"300","ph":"RT","bead":"","rem":"","ps":[[1,"","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,40.0],[1.116,1.267],"9"]]},{"n":"162-3","k":"F","t":7.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-010-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[35.0,35.0],[0.856,0.998],"9"]]},{"n":"135-PFW-t8-PB-sl","k":"F","t":8.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"156-1","k":"F","t":10.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-004-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[260.0,280.0],[27.0,29.0],9.5,[50.0,50.0],[0.674,0.78],"180"],[2,"","forceArc",1.2,[260.0,280.0],[27.0,29.0],9.5,[50.0,50.0],[0.674,0.78],"180"],[3,"","forceArc",1.2,[260.0,280.0],[27.0,29.0],9.5,[55.0,55.0],[0.613,0.709],"180"]]},{"n":"135-PFW-t10-PB-sl","k":"F","t":10.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","135",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"156-2","k":"F","t":12.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-004-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[50.0,50.0],[0.753,0.864],"180"],[2,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[55.0,55.0],[0.684,0.785],"180"],[3,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[60.0,60.0],[0.627,0.72],"180"]]},{"n":"159-3","k":"F","t":12.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-007-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[2,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[3,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[50.0,50.0],[0.937,0.937],"9"]]},{"n":"163-3","k":"F","t":12.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-011-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[45.0,45.0],[0.835,0.959],"9"],[2,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[55.0,55.0],[0.683,0.785],"9"],[3,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[45.0,45.0],[0.666,0.777],"9"]]},{"n":"135-PFW-t12-PB-ml","k":"F","t":12.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t12-PB-sl","k":"F","t":12.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"156","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-004-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[45.0,45.0],[0.836,0.96],"180"],[2,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[50.0,50.0],[0.753,0.864],"180"],[3,"","forceArc",1.2,[280.0,300.0],[28.0,30.0],10.5,[45.0,45.0],[0.836,0.96],"180"]]},{"n":"159","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-007-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[2,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[3,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[50.0,50.0],[0.937,0.937],"9"]]},{"n":"160-4","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-008-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[40.0,40.0],[1.008,1.152],"180"],[2,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[3,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[60.0,60.0],[0.672,0.768],"180"]]},{"n":"163","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-011-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[40.0,40.0],[0.94,1.079],"9"],[2,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[55.0,55.0],[0.683,0.785],"9"],[3,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[40.0,40.0],[0.749,0.874],"9"]]},{"n":"135-PFW-t15-PB-ml","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t15-PB-sl","k":"F","t":15.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"root","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,42.0],[0.928,1.116],"9"]]},{"n":"156-3","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-004-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[2,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[3,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[55.0,55.0],[0.733,0.838],"180"]]},{"n":"159-4","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-007-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[2,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[55.0,55.0],[0.852,0.852],"9"],[3,"","Standard",1.2,[310.0,310.0],[31.5,31.5],11.0,[50.0,50.0],[0.937,0.937],"9"]]},{"n":"160-5","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-008-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[40.0,40.0],[1.008,1.152],"180"],[2,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[3,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[60.0,60.0],[0.672,0.768],"180"]]},{"n":"163-4","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-011-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Picomig","ps":[[1,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[40.0,40.0],[0.94,1.079],"9"],[2,"","Standard",1.2,[270.0,290.0],[29.0,31.0],9.5,[55.0,55.0],[0.683,0.785],"9"],[3,"","Standard",1.2,[240.0,260.0],[26.0,28.0],8.0,[40.0,40.0],[0.749,0.874],"9"]]},{"n":"135-PFW-t18-PB-ml","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t18-PB-sl","k":"F","t":18.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[300.0,320.0],[28.5,30.5],11.0,[40.0,42.0],[0.977,1.152],"9"]]},{"n":"135-PFW-t20-PB-sl","k":"F","t":20.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[300.0,320.0],[28.5,30.5],11.0,[40.0,42.0],[0.977,1.152],"9"]]},{"n":"160-6","k":"F","t":22.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-008-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[40.0,40.0],[1.008,1.152],"180"],[2,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[3,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[60.0,60.0],[0.672,0.768],"180"]]},{"n":"160-7","k":"F","t":25.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-008-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[40.0,40.0],[1.008,1.152],"180"],[2,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[50.0,50.0],[0.806,0.922],"180"],[3,"","forceArc",1.2,[300.0,320.0],[28.0,30.0],11.0,[60.0,60.0],[0.672,0.768],"180"]]},{"n":"135-PFW-t25-PB-ml","k":"F","t":25.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t25-PB-sl","k":"F","t":25.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"100°C","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,42.0],[1.063,1.267],"9"]]},{"n":"160","k":"F","t":30.0,"pos":"PB","d":1.2,"mat":"S355J2+N 1.0557 1.2","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-008-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"AlphaQ, Phoenix, Taurus Synergic, Picomig","ps":[[1,"","forceArc",1.2,[310.0,310.0],[30.5,30.5],11.0,[40.0,40.0],[1.135,1.135],"180"],[2,"","forceArc",1.2,[310.0,310.0],[30.5,30.5],11.0,[50.0,50.0],[0.908,0.908],"180"],[3,"","forceArc",1.2,[310.0,310.0],[30.5,30.5],11.0,[60.0,60.0],[0.756,0.756],"180"]]},{"n":"135-PFW-t30-PB-ml","k":"F","t":30.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t30-PB-sl","k":"F","t":30.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12"],"ip":"","ph":"100°C","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[310.0,330.0],[30.0,32.0],11.5,[40.0,42.0],[1.063,1.267],"9"]]},{"n":"135-PFW-t50-PB-ml","k":"F","t":50.0,"pos":"PB","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PA-PB"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[2,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[3,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[4,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[5,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"],[6,"cap","Standard",1.2,[290.0,310.0],[28.0,30.0],10.5,[40.0,45.0],[0.866,1.116],"9"]]},{"n":"135-PFW-t3-PF-sl-SP","k":"F","t":3.0,"pos":"PF","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-10"],"ip":"","ph":"","bead":"Straichraupe","rem":"Schweißprozess 135: Job 207 Superpuls, Wechsel zwischen Impuls und rootarc, AlphaQ, Phoenix","ps":[[1,"root","Standard",1.2,[80.0,100.0],[18.0,20.0],2.4,[23.0,23.0],[0.301,0.417],"207"]]},{"n":"167-1","k":"F","t":4.0,"pos":"PF","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-015-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Job 193 Superpuls, Wechsel zwischen coldarc und Impuls, AlphaQ","ps":[[1,"","Standard",1.0,[80.0,110.0],[18.0,20.0],4.0,[20.0,20.0],[0.346,0.528],"193"]]},{"n":"135-PFW-t4-PF-sl-SP","k":"F","t":4.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-10"],"ip":"","ph":"","bead":"Strichraupe","rem":"Schweißprozess 135: Job 207 Superpuls, Wechsel zwischen Impuls und rootarc, AlphaQ, Phoenix","ps":[[1,"root","Standard",1.2,[90.0,120.0],[18.5,20.5],3.0,[25.0,25.0],[0.32,0.461],"207"]]},{"n":"167-2","k":"F","t":5.0,"pos":"PF","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-015-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Job 193 Superpuls, Wechsel zwischen coldarc und Impuls, AlphaQ","ps":[[1,"","Standard",1.0,[110.0,130.0],[19.0,21.0],4.5,[20.0,20.0],[0.502,0.655],"193"]]},{"n":"135-PFW-t5-PF-sl-SP","k":"F","t":5.0,"pos":"PF","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-10"],"ip":"","ph":"","bead":"Strichraupe","rem":"Schweißprozess 135: Job 207 Superpuls, Wechsel zwischen Impuls und rootarc, AlphaQ, Phoenix","ps":[[1,"root","Standard",1.2,[110.0,130.0],[19.0,21.0],3.3,[27.0,27.0],[0.372,0.485],"207"]]},{"n":"135-PFW-t6-PF-sl-SP","k":"F","t":6.0,"pos":"PF","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-10"],"ip":"","ph":"","bead":"Strichraupe","rem":"Schweißprozess 135: Job 207 Superpuls, Wechsel zwischen Impuls und rootarc, AlphaQ, Phoenix","ps":[[1,"root","Standard",1.2,[130.0,150.0],[19.5,21.5],3.5,[28.0,28.0],[0.435,0.54],"207"]]},{"n":"167-3","k":"F","t":6.0,"pos":"PF","d":1.0,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["01 202 644-V-220098-015-12"],"ip":"250","ph":"","bead":"Strichraupe","rem":"Prozess 135: Job 193 Superpuls, Wechsel zwischen coldarc und Impuls, AlphaQ","ps":[[1,"","Standard",1.0,[120.0,140.0],[19.0,21.0],5.0,[25.0,25.0],[0.438,0.564],"193"]]},{"n":"135-PFW-t8-PF-sl","k":"F","t":8.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[145.0,165.0],[15.5,17.5],4.0,[7.0,8.0],[1.349,1.923],"9"]]},{"n":"135-PFW-t8-PF-sl-SP","k":"F","t":8.0,"pos":"PF","d":1.2,"mat":"S235JR 1.0038 1.1","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-10"],"ip":"","ph":"","bead":"Strichraupe","rem":"Schweißprozess 135: Job 207 Superpuls, Wechsel zwischen Impuls und rootarc, AlphaQ, Phoenix","ps":[[1,"root","Standard",1.2,[145.0,165.0],[0.0,20.022],3.6,[30.0,30.0],[0.465,0.529],"207"]]},{"n":"135-PFW-t10-PF-sl","k":"F","t":10.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[145.0,165.0],[15.5,17.5],4.0,[7.0,8.0],[1.349,1.923],"9"]]},{"n":"135-PFW-t12-PF-ml","k":"F","t":12.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"],[2,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"]]},{"n":"135-PFW-t12-PF-sl","k":"F","t":12.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[155.0,175.0],[16.5,18.5],4.4,[7.0,8.0],[1.534,2.16],"9"]]},{"n":"135-PFW-t15-PF-ml","k":"F","t":15.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"],[2,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[6.0,7.0],[1.92,2.816],"9"]]},{"n":"135-PFW-t15-PF-sl","k":"F","t":15.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[155.0,175.0],[16.5,18.5],4.4,[7.0,8.0],[1.534,2.16],"9"]]},{"n":"135-PFW-t18-PF-ml","k":"F","t":18.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"],[2,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[6.0,7.0],[1.92,2.816],"9"]]},{"n":"135-PFW-t18-PF-sl","k":"F","t":18.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[165.0,185.0],[19.5,21.5],5.0,[7.0,8.0],[1.931,2.664],"9"]]},{"n":"135-PFW-t20-PF-ml","k":"F","t":20.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"],[2,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[6.0,7.0],[1.92,2.816],"9"]]},{"n":"135-PFW-t20-PF-sl","k":"F","t":20.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[165.0,185.0],[19.5,21.5],5.0,[7.0,8.0],[1.931,2.664],"9"]]},{"n":"135-PFW-t25-PF-ml","k":"F","t":25.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.68,2.414],"9"],[2,"root","Standard",1.2,[140.0,160.0],[20.0,22.0],4.5,[5.0,6.0],[2.24,3.379],"9"]]},{"n":"135-PFW-t25-PF-sl","k":"F","t":25.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"100°C","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[165.0,185.0],[19.5,21.5],5.0,[7.0,8.0],[1.931,2.664],"9"]]},{"n":"135-PFW-t30-PF-ml","k":"F","t":30.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-13/14-PF"],"ip":"250","ph":"","bead":"Strichraupe","rem":"","ps":[[1,"root","135",1.2,[140.0,160.0],[20.0,22.0],4.5,[7.0,8.0],[1.44,2.098],"9"],[2,"root","135",1.2,[140.0,160.0],[20.0,22.0],4.5,[5.0,6.0],[1.44,2.098],"9"]]},{"n":"135-PFW-t30-PF-sl","k":"F","t":30.0,"pos":"PF","d":1.2,"mat":"S355 J2 (1.0577) (1.2)","gap":0.0,"fl":0.0,"wpqr":["226 715 14 084-11/12-PF"],"ip":"250","ph":"100°C","bead":"Pendelraupe","rem":"","ps":[[1,"root","Standard",1.2,[165.0,185.0],[19.5,21.5],5.0,[7.0,8.0],[1.931,2.664],"9"]]}],"wpqr":{"01 202 644-V-220098-001-12":{"no":"01 202 644-V-220098-001-12","proc":"135 MAG rootArc","naht":"V-Naht","tmin":3.0,"tmax":24.0,"t":12.0,"qmin":0.48,"qmax":1.6,"pos":"PA","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-002-12":{"no":"01 202 644-V-220098-002-12","proc":"135 MAG forceArc","naht":"V-Naht mit Schweißbadsicherung","tmin":3.0,"tmax":24.0,"t":12.0,"qmin":0.76,"qmax":1.85,"pos":"PA","gas":"M21-ArC-18","filler":"G 46 4 M21 4Si1 / 42 2 C1 4Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-003-12":{"no":"01 202 644-V-220098-003-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":3.0,"tmax":7.2,"t":6.0,"qmin":0.53,"qmax":0.88,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 C1/M21 4Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614-1","mech":"teilmechanisch"},"01 202 644-V-220098-004-12":{"no":"01 202 644-V-220098-004-12","proc":"135 MAG forceArc","naht":"Kehlnaht","tmin":7.5,"tmax":18.0,"t":15.0,"qmin":0.49,"qmax":0.95,"pos":"PB","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-005-12":{"no":"01 202 644-V-220098-005-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":3.0,"tmax":7.2,"t":6.0,"qmin":1.27,"qmax":null,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614-1","mech":"manuel"},"01 202 644-V-220098-006-12":{"no":"01 202 644-V-220098-006-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":1.4,"tmax":4.0,"t":2.0,"qmin":0.2,"qmax":0.33,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-007-12":{"no":"01 202 644-V-220098-007-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":7.5,"tmax":18.0,"t":15.0,"qmin":0.65,"qmax":1.25,"pos":"PB","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-008-12":{"no":"01 202 644-V-220098-008-12","proc":"135 MAG forceArc","naht":"Kehlnaht","tmin":5.0,"tmax":null,"t":30.0,"qmin":0.58,"qmax":1.28,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 C1/M21 4Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"","basis":"","mech":"teilmechanisch"},"01 202 644-V-220098-009-12":{"no":"01 202 644-V-220098-009-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":1.4,"tmax":4.0,"t":2.0,"qmin":0.3,"qmax":0.3,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland Industrie Service","basis":"DIN EN ISO 15614-1","mech":"manuel"},"01 202 644-V-220098-010-12":{"no":"01 202 644-V-220098-010-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":3.0,"tmax":7.2,"t":6.0,"qmin":0.7,"qmax":0.94,"pos":"PB","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614-1","mech":"teilmechanisch"},"01 202 644-V-220098-011-12":{"no":"01 202 644-V-220098-011-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":7.5,"tmax":18.0,"t":15.0,"qmin":0.56,"qmax":1.07,"pos":"PB","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 - 1","mech":"teilmechanisch"},"01 202 644-V-220098-012-12":{"no":"01 202 644-V-220098-012-12","proc":"135 MAG coldArc","naht":"V-Naht","tmin":3.0,"tmax":24.0,"t":12.0,"qmin":0.38,"qmax":1.56,"pos":"PA","gas":"M21-ArC-18","filler":"G 46 4 M21 4Si1 / 42 2 C1 4Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"01 202 644-V-220098-015-12":{"no":"01 202 644-V-220098-015-12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":3.0,"tmax":7.7,"t":6.0,"qmin":0.4,"qmax":0.57,"pos":"PF","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"TÜV Rheinland","basis":"DIN EN ISO 15612 / 15614-1","mech":"teilmechanisch"},"226 715 14 084-06":{"no":"226 715 14 084-06","proc":"135 MAG Massivdraht","naht":"V-Naht","tmin":3.0,"tmax":24.0,"t":12.0,"qmin":1.24,"qmax":1.96,"pos":"PA, PF","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"226 715 14 084-10":{"no":"226 715 14 084-10","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":2.5,"tmax":10.0,"t":5.0,"qmin":0.34,"qmax":0.47,"pos":"PF","gas":"M21-ArC-18","filler":"G42 5 M21/ C1 3Si","mat":"S235JR 1.0038 1.1","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 - 1","mech":"teilmechanisch"},"226 715 14 084-11/12":{"no":"226 715 14 084-11/12","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":7.5,"tmax":30.0,"t":15.0,"qmin":0.93,"qmax":2.22,"pos":"PA, PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"226 715 14 084-11/12-PF":{"no":"226 715 14 084-11/12-PF","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":7.5,"tmax":30.0,"t":15.0,"qmin":0.93,"qmax":2.22,"pos":"PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355J2+N 1.0557 1.2","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"226 715 14 084-13/14-PA-PB":{"no":"226 715 14 084-13/14-PA-PB","proc":"135 MAG Massivdraht","naht":"Kehlnaht","tmin":5.0,"tmax":null,"t":30.0,"qmin":0.93,"qmax":2.94,"pos":"PA, PB","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355 J2 (1.0577) (1.2)","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"},"226 715 14 084-13/14-PF":{"no":"226 715 14 084-13/14-PF","proc":"135","naht":"Kehlnaht","tmin":5.0,"tmax":null,"t":30.0,"qmin":0.93,"qmax":2.94,"pos":"PF","gas":"M21-ArC-18","filler":"G 46 4 M21 3Si1 / 42 2 C1 3Si1","mat":"S355 J2 (1.0577) (1.2)","grp":"1.1","lab":"GSI SLV Halle","basis":"DIN EN ISO 15612 / 15614 -1","mech":"teilmechanisch"}}}</script>
+<script>
+// ================= Подбор режимов MIG/MAG · технический отдел =================
+const $ = id => document.getElementById(id);
+const f1 = x => x.toLocaleString("ru-RU",{maximumFractionDigits:1,minimumFractionDigits:1});
+const f0 = x => Math.round(x).toLocaleString("ru-RU");
+const f2 = x => x.toLocaleString("ru-RU",{maximumFractionDigits:2,minimumFractionDigits:2});
+const clamp = (x,a,b)=>Math.min(b,Math.max(a,x));
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const EL = ["C","Mn","Cr","Mo","V","Ni","Cu"];
+const GOST = {I1:"С2",I2:"С7",V:"С17",X:"С25",T1:"Т1",T3:"Т3",T1b:"Т6",T3b:"Т8"};
+const CLS_N = {steel:"Сталь",ss:"Нержавеющая сталь",al:"Алюминий"};
+
+// ---------- SHA-256 (для пароля администратора) ----------
+function sha256(str){
+  const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes=new TextEncoder().encode(str), l=bytes.length, n=((l+9+63)>>6)<<6, m=new Uint8Array(n);
+  m.set(bytes); m[l]=0x80; const dv=new DataView(m.buffer); dv.setUint32(n-4,l*8); dv.setUint32(n-8,Math.floor(l/0x20000000));
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const r=(x,y)=>(x>>>y)|(x<<(32-y)), w=new Uint32Array(64);
+  for(let o=0;o<n;o+=64){
+    for(let i=0;i<16;i++) w[i]=dv.getUint32(o+i*4);
+    for(let i=16;i<64;i++){ const s0=r(w[i-15],7)^r(w[i-15],18)^(w[i-15]>>>3), s1=r(w[i-2],17)^r(w[i-2],19)^(w[i-2]>>>10); w[i]=(w[i-16]+s0+w[i-7]+s1)|0; }
+    let [a,b,c,d,e,f,g,h]=H;
+    for(let i=0;i<64;i++){ const S1=r(e,6)^r(e,11)^r(e,25), ch=(e&f)^(~e&g), t1=(h+S1+ch+K[i]+w[i])|0, S0=r(a,2)^r(a,13)^r(a,22), mj=(a&b)^(a&c)^(b&c), t2=(S0+mj)|0;
+      h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0; }
+    H=H.map((x,i)=>(x+[a,b,c,d,e,f,g,h][i])|0);
+  }
+  return H.map(x=>(x>>>0).toString(16).padStart(8,"0")).join("");
+}
+const pwHash = pw => sha256("podbor-mag:"+pw);
+
+// ---------- заводской справочник ----------
+const steel = (id,n,g,C,Mn,Cr,Mo,V,Ni,Cu,extra={}) => ({id,n,cls:"steel",g,wire:"G3Si1 (Св-08Г2С)",C,Mn,Cr,Mo,V,Ni,Cu,ph:"",note:"",...extra});
+const ss = (id,n,g,wire,extra={}) => ({id,n,cls:"ss",g,wire,C:0,Mn:0,Cr:0,Mo:0,V:0,Ni:0,Cu:0,ph:"",note:"",...extra});
+const al = (id,n,g,wire,extra={}) => ({id,n,cls:"al",g,wire,C:0,Mn:0,Cr:0,Mo:0,V:0,Ni:0,Cu:0,ph:"",note:"",...extra});
+const HARD = "Закаливающаяся сталь: обязательны подогрев, контроль межпроходной температуры и, как правило, термообработка после сварки. Проволока подбирается отдельно.";
+const FACTORY = {
+  version: 2,
+  adminHash: pwHash("admin"),
+  materials: [
+    steel("st3","Ст3сп / S235JR","1.1",.18,.55,.10,0,0,.10,.15),
+    steel("st3ps","Ст3пс","1.1",.18,.50,.10,0,0,.10,.15),
+    steel("s10","Сталь 10","1.1",.10,.50,.10,0,0,.10,.15),
+    steel("s20","Сталь 20","1.1",.20,.50,.15,0,0,.15,.15),
+    steel("s275","S275JR","1.1",.18,1.00,.10,0,0,.10,.20),
+    steel("s355","S355J2","1.2",.18,1.40,.15,.03,.02,.15,.20),
+    steel("g2s","09Г2С","1.2",.12,1.50,.20,0,0,.20,.20),
+    steel("c345","С345 (ГОСТ 27772)","1.2",.14,1.40,.20,0,0,.20,.20),
+    steel("g1s","17Г1С","1.2",.17,1.30,.20,0,0,.20,.20),
+    steel("hsnd10","10ХСНД","1.2",.11,.65,.75,0,0,.65,.50),
+    steel("hsnd15","15ХСНД","1.2",.15,.55,.75,0,0,.45,.30),
+    steel("hfa13","13ХФА (трубная)","1.2",.13,.50,.60,0,.05,.15,.20),
+    steel("c390","С390 (ГОСТ 27772)","1.3",.14,1.50,.20,0,.08,.20,.20),
+    steel("s420","S420ML","1.3",.14,1.60,.20,.05,.10,.30,.20),
+    steel("s460","S460ML","1.3",.15,1.65,.25,.08,.12,.40,.20),
+    steel("s35","Сталь 35","11.1",.35,.65,.20,0,0,.20,.20,{ph:"100",note:"Среднеуглеродистая сталь: подогрев не ниже 100 °C, медленное охлаждение."}),
+    steel("s45","Сталь 45","11.2",.45,.65,.20,0,0,.20,.20,{ph:"150",note:HARD}),
+    steel("hgsa30","30ХГСА","3.1",.31,.95,.95,0,0,.20,.20,{ph:"200",note:HARD}),
+    steel("h40","40Х","3.1",.40,.65,.95,0,0,.20,.20,{ph:"200",note:HARD}),
+    steel("g65","65Г","11.2",.65,1.00,.20,0,0,.20,.20,{ph:"250",note:"Пружинная сталь: сварка не рекомендуется. Если неизбежна — подогрев 250–300 °C и отпуск после сварки."}),
+    steel("hm15","15ХМ","5.1",.15,.55,.95,.50,0,.20,.20,{wire:"G CrMo1Si (Св-08ХГСМА)",ph:"150",note:"Теплоустойчивая сталь: подогрев 150–250 °C, межпроходная ≤ 300 °C, высокий отпуск после сварки."}),
+    steel("h1mf12","12Х1МФ","6.1",.12,.55,1.05,.30,.20,.20,.20,{wire:"Св-08ХГСМФА",ph:"200",note:"Теплоустойчивая сталь: подогрев 200–300 °C, высокий отпуск после сварки."}),
+    ss("aisi304","08Х18Н10 / AISI 304","8.1","G 19 9 L Si (ER308LSi)"),
+    ss("aisi304l","03Х18Н11 / AISI 304L","8.1","G 19 9 L Si (ER308LSi)"),
+    ss("aisi321","12Х18Н10Т / AISI 321","8.1","G 19 9 Nb Si (ER347Si)"),
+    ss("aisi316l","03Х17Н14М3 / AISI 316L","8.1","G 19 12 3 L Si (ER316LSi)"),
+    ss("aisi316ti","10Х17Н13М2Т / AISI 316Ti","8.1","G 19 12 3 Nb Si (ER318Si)"),
+    ss("aisi310","20Х23Н18 / AISI 310S","8.2","G 25 20 (ER310)"),
+    ss("dup2205","02Х22Н5АМ3 / Duplex 2205","10.1","G 22 9 3 N L (ER2209)",{note:"Дуплексная сталь: держите Q в пределах 0,5–2,5 кДж/мм, межпроходная ≤ 150 °C."}),
+    al("ad0","АД0 / AW-1050A","21","S Al 1450 (ER1100)"),
+    al("amc","АМц / AW-3003","22.1","S Al 4043A (ER4043)"),
+    al("amg2","АМг2 / AW-5251","22.3","S Al 5356 (ER5356)"),
+    al("amg3","АМг3 / AW-5754","22.3","S Al 5356 (ER5356)"),
+    al("amg5","АМг5 / AW-5056","22.4","S Al 5356 (ER5356, Св-АМг5)"),
+    al("amg6","АМг6","22.4","S Al 5183 (ER5183, Св-АМг6)"),
+    al("al5083","AW-5083","22.4","S Al 5183 (ER5183)"),
+    al("al1561","1561 (АМг61)","22.4","Св-1557 / S Al 5183"),
+    al("ad31","АД31 / AW-6063","23.1","S Al 4043A (ER4043)",{note:"Термоупрочняемый сплав: прочность ЗТВ снижается на 30–50 %, учитывайте в расчёте прочности."}),
+    al("ad33","АД33 / AW-6061","23.1","S Al 5356 (ER5356)",{note:"Термоупрочняемый сплав: прочность ЗТВ снижается на 30–50 %, учитывайте в расчёте прочности."}),
+    al("al6082","AW-6082 (АД35)","23.1","S Al 5356 (ER5356)",{note:"Термоупрочняемый сплав: прочность ЗТВ снижается на 30–50 %, учитывайте в расчёте прочности."})
+  ],
+  classes: {
+    steel: { proc:"135 MAG", rho:7.85, yield:0.95, thinK:35, ip:"250",
+      gases:[["M21","M21 · Ar+18%CO₂",15,0],["C1","C1 · CO₂",15,2],["M20","M20 · Ar+8%CO₂",15,-0.5]],
+      area:{PA:30,PB:28,PC:22,PF:50},
+      geo:{I:{b:1},V:{alpha:50,b:1.5,c:1.5},X:{alpha:50,b:1.5,c:2},T:{alpha:45,b:2,c:2}},
+      d:{
+        "0.8":{a:.095,b:-2.6,uc:13.5,ue:.06,fill:{PA:150,PB:150,PC:130,PF:100},root:90,rootPF:75,rootA:12,k:.5,tlo:140,thi:170},
+        "1.0":{a:.060,b:-2.29,uc:12.9,ue:.057,fill:{PA:200,PB:200,PC:170,PF:110},root:105,rootPF:80,rootA:15,k:.7,tlo:160,thi:200},
+        "1.2":{a:.0395,b:-1.46,uc:11.25,ue:.0595,fill:{PA:290,PB:300,PC:220,PF:120},root:130,rootPF:85,rootA:20,k:1,tlo:180,thi:230}
+      }},
+    ss: { proc:"135 MAG (нерж.)", rho:7.9, yield:0.95, thinK:30, ip:"150",
+      gases:[["M12","M12 · Ar+2,5%CO₂",14,0],["M13","M13 · Ar+2%O₂",14,0]],
+      area:{PA:26,PB:24,PC:20,PF:35},
+      geo:{I:{b:1},V:{alpha:60,b:1.5,c:1.5},X:{alpha:60,b:1.5,c:2},T:{alpha:45,b:2,c:1.5}},
+      d:{
+        "0.8":{a:.105,b:-2.6,uc:12.5,ue:.06,fill:{PA:130,PB:130,PC:110,PF:90},root:85,rootPF:70,rootA:10,k:.5,tlo:130,thi:160},
+        "1.0":{a:.066,b:-2.3,uc:12,ue:.057,fill:{PA:170,PB:170,PC:140,PF:100},root:95,rootPF:75,rootA:13,k:.7,tlo:150,thi:180},
+        "1.2":{a:.0435,b:-1.5,uc:10.5,ue:.0595,fill:{PA:230,PB:230,PC:180,PF:110},root:110,rootPF:85,rootA:17,k:1,tlo:170,thi:200}
+      }},
+    al: { proc:"131 MIG", rho:2.70, yield:0.97, thinK:40, ip:"120",
+      gases:[["I1","I1 · Ar",18,0],["I3","I3 · Ar+30%He",20,1.5]],
+      area:{PA:35,PB:32,PC:25,PF:40},
+      geo:{I:{b:0.5},V:{alpha:70,b:1,c:2},X:{alpha:70,b:1,c:2},T:{alpha:50,b:1,c:2}},
+      d:{
+        "1.0":{a:.075,b:-0.5,uc:14,ue:.05,fill:{PA:150,PB:150,PC:130,PF:120},root:120,rootPF:110,rootA:15,k:.8,tlo:90,thi:110},
+        "1.2":{a:.058,b:-0.2,uc:14.5,ue:.045,fill:{PA:200,PB:200,PC:170,PF:150},root:150,rootPF:130,rootA:22,k:1,tlo:110,thi:130},
+        "1.6":{a:.044,b:-1.8,uc:15,ue:.042,fill:{PA:260,PB:250,PC:200,PF:170},root:180,rootPF:150,rootA:28,k:1.3,tlo:150,thi:170}
+      }}
+  }
+};
+
+// ---------- хранение настроек ----------
+const LS_KEY="podbor-mag-settings";
+const desktop = typeof window.appLoad==="function";
+const android = !!(window.Android && typeof window.Android.load==="function");
+const pwa = window.PODBOR_PWA===true && !android && !desktop;
+const store = {
+  async load(){
+    try{ if(android){ const s=window.Android.load(); return s?JSON.parse(s):null; } }catch(e){}
+    try{ if(desktop){ const s=await window.appLoad(); return s?JSON.parse(s):null; } }catch(e){}
+    try{ const s=localStorage.getItem(LS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; }
+  },
+  async save(obj){
+    const s=JSON.stringify(obj,null,1);
+    if(android){ const r=window.Android.save(s); if(r==="ERR") throw new Error("нет доступа к памяти приложения"); return r; }
+    if(desktop){ return await window.appSave(s); }
+    try{ localStorage.setItem(LS_KEY,s); return pwa ? "на этом устройстве" : "в этом браузере"; }catch(e){ throw new Error("браузер не разрешает сохранять данные"); }
+  }
+};
+function mergeCfg(saved){
+  const c=clone(FACTORY);
+  if(!saved || typeof saved!=="object") return c;
+  if(Array.isArray(saved.materials) && saved.materials.length) c.materials=saved.materials;
+  if(saved.adminHash) c.adminHash=saved.adminHash;
+  if(saved.classes) for(const k of Object.keys(c.classes)){ const s=saved.classes[k]; if(!s) continue;
+    const t=c.classes[k];
+    for(const f of ["proc","rho","yield","thinK","ip"]) if(s[f]!==undefined) t[f]=s[f];
+    if(Array.isArray(s.gases)&&s.gases.length) t.gases=s.gases;
+    if(s.area) Object.assign(t.area,s.area);
+    if(s.geo) for(const j of Object.keys(t.geo)) if(s.geo[j]) Object.assign(t.geo[j],s.geo[j]);
+    if(s.d) for(const d of Object.keys(s.d)){ t.d[d]=Object.assign(t.d[d]||{},s.d[d]); if(s.d[d].fill) t.d[d].fill=Object.assign({},(FACTORY.classes[k].d[d]||{}).fill,s.d[d].fill); }
+  }
+  return c;
+}
+let CFG = clone(FACTORY);   // рабочий справочник
+let role = "user";
+let joint = "V";
+let cls = "steel";
+let OVR = {};               // ручные режимы администратора: индекс прохода → {I,U}
+const mat = () => CFG.materials.find(m=>m.id===$("steel").value) || CFG.materials[0];
+const C = () => CFG.classes[cls];
+const D = d => C().d[String(d.toFixed(1))] || Object.values(C().d)[0];
+
+
+// ---------- интерфейс ----------
+const sel = $("steel");
+$("chem").innerHTML = EL.map(e=>`<label>${e}<input type="number" id="el_${e}" step="0.01" min="0" max="5"></label>`).join("");
+const isAdmin = () => role==="admin";
+
+function fillMaterials(keepId){
+  const list = CFG.materials.filter(m=>m.cls===cls);
+  sel.innerHTML = list.map(m=>`<option value="${esc(m.id)}">${esc(m.n)}</option>`).join("");
+  const want = keepId && list.some(m=>m.id===keepId) ? keepId : ({steel:"g2s",ss:"aisi321",al:"amg5"}[cls]);
+  sel.value = list.some(m=>m.id===want) ? want : (list[0]||{}).id;
+  fillChem();
+}
+function fillChem(){ const m=mat(); if(!m) return; EL.forEach(e=>$("el_"+e).value=m[e]??0); }
+function fillProcess(){
+  const c=C(), wPrev=$("wire").value, gPrev=$("gas").value;
+  const ds=Object.keys(c.d).sort((a,b)=>a-b);
+  $("wire").innerHTML = ds.map(d=>`<option value="${d}">${d.replace(".",",")}</option>`).join("");
+  $("wire").value = ds.includes(wPrev) ? wPrev : (ds.includes("1.2")?"1.2":ds[ds.length-1]);
+  $("gas").innerHTML = c.gases.map(g=>`<option value="${esc(g[0])}">${esc(g[1])}</option>`).join("");
+  $("gas").value = c.gases.some(g=>g[0]===gPrev) ? gPrev : c.gases[0][0];
+}
+function setCls(v){
+  cls=v; OVR={};
+  document.querySelectorAll("#clsSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===v));
+  fillMaterials(); fillProcess(); applyGeoDefaults(); calc();
+}
+function applyGeoDefaults(){
+  const g=C().geo;
+  if(joint.startsWith("T")){ if($("bevel").checked){ $("alpha").value=g.T.alpha; $("b").value=g.T.b; $("c").value=g.T.c; } }
+  else { const d=g[joint]||{}; if(d.alpha!==undefined) $("alpha").value=d.alpha; if(d.b!==undefined) $("b").value=d.b; if(d.c!==undefined) $("c").value=d.c; if(joint==="I"){ $("alpha").value=0; $("c").value=0; } }
+}
+function setJoint(j, keepValues){
+  joint=j; OVR={};
+  document.querySelectorAll("#joint button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===j));
+  const fillet = j.startsWith("T");
+  if(!keepValues){ if(fillet){ $("k").value=6; autoBevel(true); } else applyGeoDefaults(); }
+  const pos=$("pos");
+  if(fillet && pos.value==="PA") pos.value="PB";
+  if(!fillet && pos.value==="PB") pos.value="PA";
+  calc();
+}
+// тавр: скос кромки стенки при s > 8 мм (ГОСТ 14771 Т6 / Т8)
+let lastBevelS=null;
+function bevelDefaults(on){
+  const s=+$("s").value||1, g=C().geo.T;
+  if(on){ $("alpha").value=g.alpha; $("b").value=g.b; $("c").value=g.c; $("k").value=Math.max(3,Math.round(0.25*s)); }
+  else { $("k").value=6; }
+}
+function autoBevel(force){
+  if(!joint.startsWith("T")) return;
+  const s=+$("s").value||1, want=s>8;
+  if(force || (lastBevelS!==null && (lastBevelS>8)!==want)){ if($("bevel").checked!==want || force){ $("bevel").checked=want; bevelDefaults(want);} }
+  lastBevelS=s;
+}
+function syncUI(){
+  const fillet=joint.startsWith("T"), bev=fillet && $("bevel").checked;
+  $("grooveRow").hidden = fillet && !bev; $("kRow").hidden = !fillet; $("sealRow").hidden = joint!=="V"; $("bevelRow").hidden = !fillet; $("sealTRow").hidden = !(joint==="T1" && bev);
+  $("alphaLbl").textContent = bev ? "Угол скоса β, °" : "Угол α, °";
+  $("kLbl").textContent = bev ? "Усиливающий катет k, мм" : "Катет k, мм";
+  $("alpha").disabled = joint==="I"; $("c").disabled = joint==="I";
+  $("chemBlock").hidden = cls!=="steel";
+  const lock = !isAdmin();
+  ["alpha","b","c",...EL.map(e=>"el_"+e)].forEach(id=>{ $(id).readOnly = lock; });
+  $("lockHint").innerHTML = lock && !$("grooveRow").hidden ? "Размеры разделки заданы справочником. Изменить их может <b>администратор</b>." : "";
+  $("chemHint").textContent = lock ? "Химсостав, % — типовой для марки из справочника." : "Химсостав, %. Впишите по сертификату.";
+  const m=mat(); const c=C();
+  $("procBadge").textContent = `ISO 4063: ${c.proc} · проволока ${m?m.wire:"—"}`;
+  $("matInfo").textContent = m ? `Группа ISO/TR 15608: ${m.g||"—"} · проволока ${m.wire}` : "";
+}
+$("s").addEventListener("input",()=>{ autoBevel(false); });
+$("bevel").addEventListener("change",()=>{ bevelDefaults($("bevel").checked); lastBevelS=+$("s").value; });
+document.querySelectorAll("#joint button").forEach(b=>b.addEventListener("click",()=>setJoint(b.dataset.v)));
+document.querySelectorAll("#clsSeg button").forEach(b=>b.addEventListener("click",()=>setCls(b.dataset.v)));
+sel.addEventListener("change",()=>{ fillChem(); OVR={}; calc(); });
+document.querySelectorAll("aside input, aside select").forEach(i=>{ if(i.id!=="steel" && i.id!=="tag") i.addEventListener("input",()=>{ OVR={}; calc(); }); });
+
+// ---------- физика ----------
+function wfsFromI(I,d){ const q=D(d); return clamp(q.a*I+q.b,1.5,22); }
+function iFromWfs(w,d){ const q=D(d); return (w-q.b)/q.a; }
+function transfer(I,d,gas){
+  const q=D(d);
+  if(cls==="al") return I<q.thi ? "импульсная дуга" : "струйный";
+  if(I<q.tlo) return "короткая дуга";
+  if(gas==="C1") return I<q.thi ? "переходный" : "крупнокапельный";
+  return I<q.thi ? "переходный" : "струйный";
+}
+
+function geometry(p){
+  const {s,alpha,b,c,k}=p, t=Math.tan(alpha*Math.PI/360);
+  const g = Math.min(3,1.5+0.05*s);
+  if(joint==="I"){
+    const two = s>4;
+    const e = b+6;
+    const A = b*s + 0.73*e*g*(two?2:1) + (two?0:0.73*(b+3)*1);
+    return {A,two,e,g};
+  }
+  if(joint==="V"){
+    const h=Math.max(0,s-c), e=b+2*h*t+3;
+    if(p.seal){
+      // подварочный шов: выборка корня полукругом r ≈ 3 мм (не глубже c+1) + выпуклость 1,5 мм
+      const gd=Math.min(3,Math.max(1.5,c+1)), eb=Math.max(b+2*gd,6)+2, gb=1.5;
+      const backA = Math.PI*gd*(eb/2)/2*0.8 + 0.73*eb*gb;
+      return {A: b*s + h*h*t + 0.73*e*g + backA, e,g, backA, gd, eb, gb};
+    }
+    return {A: b*s + h*h*t + 0.73*e*g + 0.73*(b+3)*1, e,g};
+  }
+  if(joint==="X"){
+    const h=Math.max(0,(s-c)/2), e=b+2*h*t+3;
+    return {A: b*s + 2*h*h*t + 2*0.73*e*g, e,g,h};
+  }
+  if(p.bevel){
+    const tb=Math.tan(alpha*Math.PI/180), sides=joint==="T3"?2:1;
+    const hs=Math.max(0,(s-c)/sides);
+    const one = hs*hs*tb/2 + 1.15*k*k/2 + b*s/sides;
+    if(p.seal && sides===1){
+      // подварка: выборка корня (полукруг, не глубже c+1) + угловой шов с обратной стороны
+      const gd=Math.min(3,Math.max(1.5,c+1)), kb=Math.max(3,Math.min(6,Math.round(0.25*s)));
+      const backA=Math.PI*gd*gd/2*0.8 + 1.15*kb*kb/2;
+      return {A: one+backA, one, bev:true, hs, tb, backA, kb, gd};
+    }
+    return {A: sides*one, one, bev:true, hs, tb};
+  }
+  const one = 1.15*k*k/2;
+  return {A: joint==="T3"?2*one:one, one};
+}
+
+
+function planPasses(p,G){
+  const d=p.wire, pos=p.pos, q=D(d);
+  const capA = C().area[pos]*q.k;
+  const rootA = q.rootA;
+  const P=[];
+  const split=(area,n,side,firstType)=>{ for(let i=0;i<n;i++) P.push({side,area:area/n,type: i===n-1&&n>1?"cap":(i===0?firstType:"fill")}); };
+  if(joint==="I"){
+    if(G.two){ P.push({side:"front",area:G.A/2,type:"single"}); P.push({side:"back",area:G.A/2,type:"back"}); }
+    else { const n=Math.max(1,Math.ceil(G.A/capA)); split(G.A,n,"front","single"); }
+  } else if(joint==="V"){
+    const AF = G.A-(G.backA||0);
+    if(AF<=rootA*1.3){ P.push({side:"front",area:AF,type:"single"}); }
+    else { P.push({side:"front",area:rootA,type:"root"}); const rest=AF-rootA, n=Math.max(1,Math.ceil(rest/capA)); split(rest,n,"front", n===1?"cap":"fill"); }
+    if(G.backA) P.push({side:"back",area:G.backA,type:"seal"});
+  } else if(joint==="X"){
+    P.push({side:"root",area:rootA,type:"root"});
+    const half=(G.A-rootA)/2, n=Math.max(1,Math.ceil(half/capA));
+    const F=[],B=[];
+    for(let i=0;i<n;i++){ const ty = i===n-1?"cap":"fill"; F.push({side:"front",area:half/n,type:ty}); B.push({side:"back",area:half/n,type: i===0?"back":ty}); }
+    for(let i=0;i<n;i++){ P.push(F[i]); P.push(B[i]); }
+  } else if(G.bev){
+    const per = sd => { const L=[{side:sd,area:Math.min(rootA,G.one),type:"root"}]; const rest=G.one-L[0].area;
+      if(rest>1){ const n=Math.max(1,Math.ceil(rest/(capA*1.15))); for(let i=0;i<n;i++) L.push({side:sd,area:rest/n,type:i===n-1?"cap":"fill"}); } return L; };
+    const F=per("front");
+    if(joint==="T3"){ const B=per("back"); for(let i=0;i<Math.max(F.length,B.length);i++){ if(F[i]) P.push(F[i]); if(B[i]) P.push(B[i]); } }
+    else F.forEach(q=>P.push(q));
+    if(G.backA) P.push({side:"back",area:G.backA,type:"seal"});
+  } else {
+    const n=Math.max(1,Math.ceil(G.one/capA));
+    const sides = joint==="T3"?["front","back"]:["front"];
+    sides.forEach(sd=>{ for(let i=0;i<n;i++) P.push({side:sd,area:G.one/n,type:n===1?"single":(i===0?"root":(i===n-1?"cap":"fill"))}); });
+  }
+  return P;
+}
+
+function gasRow(g){ return C().gases.find(x=>x[0]===g) || C().gases[0]; }
+
+function regime(pass,p,idx){
+  const d=p.wire, pos=p.pos, s=p.s, q=D(d), c=C();
+  const fillT = q.fill[pos];
+  const rootT = pos==="PF" ? q.rootPF : q.root;
+  let I;
+  if(pass.type==="root") I=rootT;
+  else if(pass.type==="cap") I=pos==="PF"?fillT:fillT-10;
+  else if(pass.type==="back") I=fillT-10;
+  else if(pass.type==="seal") I=fillT-30;
+  else I=fillT;
+  const thin = c.thinK*s+40;
+  if(pass.type!=="root") I=Math.min(I,thin);
+  I=Math.max(I,50);
+  const Aw=Math.PI*d*d/4, eta=c.yield;
+  const o=OVR[idx]||{};
+  let w, v;
+  if(o.I){ I=o.I; w=wfsFromI(I,d); v=w*1000*Aw*eta/pass.area; }
+  else {
+    w=wfsFromI(I,d); v=w*1000*Aw*eta/pass.area;
+    if(v>700){ w=520*pass.area/(1000*Aw*eta); I=Math.max(50,iFromWfs(w,d)); w=wfsFromI(I,d); v=w*1000*Aw*eta/pass.area; }
+  }
+  const U = o.U ? o.U : q.uc+q.ue*I+(+gasRow(p.gas)[3]||0);
+  const Q=0.8*U*I/(v/60)/1000;
+  const weave = pos==="PF" || pass.area>25;
+  return {...pass,I,U,w,v,Q,weave,mode:transfer(I,d,p.gas),manual:!!(o.I||o.U)};
+}
+
+function preheatSteel(ch,d,Q){
+  const CET=ch.C+(ch.Mn+ch.Mo)/10+(ch.Cr+ch.Cu)/20+ch.Ni/40;
+  const CEV=ch.C+ch.Mn/6+(ch.Cr+ch.Mo+ch.V)/5+(ch.Ni+ch.Cu)/15;
+  const Qc=clamp(Q,0.5,4), dc=clamp(d,10,90);
+  const Tp=697*CET+160*Math.tanh(dc/35)+62*Math.pow(4,0.35)+(53*CET-32)*Qc-328;
+  const valid = CET>=0.2&&CET<=0.5&&d>=10&&d<=90&&Q>=0.5&&Q<=4;
+  return {CET,CEV,Tp,valid};
+}
+
+// ---------- sketch ----------
+function bandsByWeight(fnW,y0,y1,weights){
+  // fnW(y) — ширина разделки; делим [y0,y1] на полосы с площадями ∝ weights
+  const N=400, ys=[], cum=[0];
+  for(let i=0;i<=N;i++) ys.push(y0+(y1-y0)*i/N);
+  for(let i=1;i<=N;i++) cum.push(cum[i-1]+0.5*(fnW(ys[i-1])+fnW(ys[i]))*Math.abs(ys[i]-ys[i-1]));
+  const tot=cum[N], W=weights.reduce((a,b)=>a+b,0); let acc=0; const cuts=[y0];
+  weights.forEach((wt,j)=>{ acc+=wt/W*tot; if(j===weights.length-1){cuts.push(y1);return;}
+    let i=cum.findIndex(c=>c>=acc); cuts.push(ys[Math.max(0,i)]); });
+  return cuts;
+}
+
+function drawSketch(p,G,P){
+  const NS="http://www.w3.org/2000/svg";
+  const fillet=joint.startsWith("T");
+  let out="", vb, labels=[];
+  const col=(i,t)=> t==="root"?"var(--root)":(i%2?"var(--weld2)":"var(--weld1)");
+  const poly=(pts,fill,cls="")=>`<polygon class="${cls}" points="${pts.map(q=>q.map(n=>n.toFixed(2)).join(",")).join(" ")}" fill="${fill}" stroke="var(--surface)" stroke-width="0.25"/>`;
+
+  if(!fillet){
+    const {s,b,c,alpha}=p, t=Math.tan(alpha*Math.PI/360);
+    let hw;
+    if(joint==="I") hw=()=>b/2;
+    else if(joint==="V") hw=y=> y<c? b/2 : b/2+(y-c)*t;
+    else { const h=G.h; hw=y=> y<h? b/2+(h-y)*t : (y<h+c? b/2 : b/2+(y-h-c)*t); }
+    const top=hw(s), half=Math.max(top+14, 22);
+    const pts=[]; for(let i=0;i<=60;i++){ const y=s*i/60; pts.push([hw(y),y]); }
+    const flip=([x,y])=>[x,-y];
+    // plates
+    const R=[[half,0],...pts.map(q=>[q[0],q[1]]).reverse().reverse(),[half,s]];
+    const right=[[half,0],[hw(0),0],...pts.slice(1),[half,s]].map(flip);
+    const left=right.map(([x,y])=>[-x,y]);
+    out+=poly(left,"var(--plate)")+poly(right,"var(--plate)");
+    // weld bands per side
+    const W=y=>2*hw(y);
+    const band=(ya,yb,fill,n)=>{ const seg=[]; const m=24; for(let i=0;i<=m;i++){const y=ya+(yb-ya)*i/m; seg.push([hw(y),y]);}
+      const shape=[...seg,...seg.slice().reverse().map(([x,y])=>[-x,y])].map(flip); out+=poly(shape,fill,"band"); labels.push([0,-(ya+yb)/2,n,Math.abs(yb-ya)]); };
+    const cap=(y,dir,fill,n,e,g)=>{ // dir=+1 сверху, -1 снизу
+      const x=e/2; const yy=-y; const peak=yy-dir*g;
+      out+=`<path class="band" d="M ${-x} ${yy} Q 0 ${(peak-dir*g*0.6).toFixed(2)} ${x} ${yy} Z" fill="${fill}" stroke="var(--surface)" stroke-width="0.25"/>`; };
+    const idx=(pp)=>P.indexOf(pp)+1;
+    if(joint==="X"){
+      const h=G.h; const rp=P.find(q=>q.side==="root");
+      band(h,h+c,col(0,"root"),idx(rp));
+      const F=P.filter(q=>q.side==="front"), B=P.filter(q=>q.side==="back");
+      const cf=bandsByWeight(W,h+c,s,F.map(q=>q.area)); F.forEach((q,i)=>band(cf[i],cf[i+1],col(idx(q),q.type),idx(q)));
+      const cb=bandsByWeight(W,h,0,B.map(q=>q.area)); B.forEach((q,i)=>band(cb[i+1],cb[i],col(idx(q),q.type),idx(q)));
+      cap(s,1,col(idx(F[F.length-1]),"cap"),0,2*top+3,G.g); cap(0,-1,col(idx(B[B.length-1]),"cap"),0,2*hw(0)+3,G.g);
+    } else if(joint==="I" && G.two){
+      band(s/2,s,col(1,"fill"),1); band(0,s/2,col(2,"fill"),2);
+      cap(s,1,col(1,"fill"),0,b+6,G.g); cap(0,-1,col(2,"fill"),0,b+6,G.g);
+    } else {
+      const PF=P.filter(q=>q.side==="front");
+      const cuts=bandsByWeight(W,0,s,PF.map(q=>q.area));
+      PF.forEach((q,i)=>band(cuts[i],cuts[i+1],col(i+1,q.type),i+1));
+      cap(s,1,col(PF.length,"cap"),0,2*top+3,G.g);
+      const sp=P.find(q=>q.type==="seal");
+      if(sp){ const n=P.indexOf(sp)+1, r=G.eb/2, gd=G.gd, gb=G.gb;
+        out+=`<path class="band" d="M ${-r} 0 C ${-r} ${-gd*1.3} ${r} ${-gd*1.3} ${r} 0 Q 0 ${2*gb} ${-r} 0 Z" fill="var(--steel)" fill-opacity="0.55" stroke="var(--surface)" stroke-width="0.25"/>`;
+        labels.push([r+2.6, gb+1.2, n, 99]);
+      } else cap(0,-1,col(1,P[0].type),0,b+3,1);
+    }
+    const pad=4; vb=[-half-pad,-s-6,2*half+2*pad,s+12];
+    out+=`<text x="${-half+1}" y="${-s-1.6}" font-size="2.6" fill="var(--muted)" font-family="Cascadia Mono, Consolas, monospace">s = ${p.s}</text>`;
+  } else if(G.bev){
+    const {s,k,b,c}=p, hs=G.hs, rise=hs*G.tb, two=joint==="T3";
+    const top=b+rise+k, H=Math.max(22,top+10), L=Math.max(30,s/2+k+24), sb=Math.max(4,Math.min(s,20));
+    const fl=pts=>pts.map(([x,y])=>[x,-y]);
+    out+=poly([[-L,0],[L,0],[L,sb],[-L,sb]],"var(--plate)");
+    const web = two ? [[-c/2,b],[c/2,b],[s/2,b+rise],[s/2,H],[-s/2,H],[-s/2,b+rise]]
+                    : [[-s/2,b],[-s/2+c,b],[s/2,b+rise],[s/2,H],[-s/2,H]];
+    out+=poly(fl(web),"var(--plate)");
+    (two?[1,-1]:[1]).forEach((dir,si)=>{
+      const ps=P.filter(q=>q.side===(si?"back":"front"));
+      const x0 = two ? dir*c/2 : -s/2+c, xw=dir*s/2, yt=b+rise+k;
+      // слои растут от корня, грань каждого слоя параллельна грани шва
+      const shape=[[x0,0],[x0,b],[xw,b+rise],[xw,yt],[dir*(s/2+k),0]];
+      const ax=x0, ay=b/2;
+      const fx1=dir*(s/2+k), fy1=0, fx2=xw, fy2=yt, fl=Math.hypot(fx2-fx1,fy2-fy1);
+      const dist=Math.abs((fy2-fy1)*ax-(fx2-fx1)*ay+fx2*fy1-fy2*fx1)/fl; // от корня до грани шва
+      const tot=ps.reduce((a,q)=>a+q.area,0); let acc=tot;
+      for(let i=ps.length-1;i>=0;i--){
+        const q=ps[i], f=Math.sqrt(acc/tot), fin=Math.sqrt(Math.max(0,acc-q.area)/tot), nidx=P.indexOf(q)+1;
+        out+=poly(shape.map(([x,y])=>[ax+(x-ax)*f, -(ay+(y-ay)*f)]),col(nidx,q.type),"band");
+        // подпись: на биссектрисе от корня к середине грани
+        const mx=(fx1+fx2)/2, my=(fy1+fy2)/2, fm=(f+fin)/2;
+        labels.push([ax+(mx-ax)*fm, -(ay+(my-ay)*fm), nidx, (f-fin)*dist]);
+        acc-=q.area;
+      }
+      out+=`<path d="M ${dir*(s/2+k)} 0 Q ${xw+dir*k*0.62} ${-(b+rise)-k*0.62} ${xw} ${-yt}" fill="${col(P.indexOf(ps[ps.length-1])+1,'cap')}" stroke="var(--surface)" stroke-width="0.25"/>`;
+    });
+    const spT=P.find(q=>q.type==="seal");
+    if(spT){ const x0=-s/2+c, kb=G.kb, n=P.indexOf(spT)+1;
+      out+=poly([[x0,0],[-s/2-kb,0],[-s/2,-(b+kb)],[-s/2,-b],[x0,-b]].map(([x,y])=>[x,y]),"var(--steel)","band").replace('fill="var(--steel)"','fill="var(--steel)" fill-opacity="0.55"');
+      labels.push([-s/2-kb*0.35-1.2,-(b+kb)*0.35,n,99]);
+      out+=`<text x="${-s/2-kb-14}" y="${-(b+kb)-1.5}" font-size="2.4" fill="var(--muted)" font-family="Cascadia Mono, Consolas, monospace">подварка k ${kb}</text>`;
+    }
+    vb=[-L-3,-H-4,2*L+6,H+sb+8];
+    out+=`<text x="${s/2+k+2}" y="${-(b+rise+k*0.5)}" font-size="2.6" fill="var(--muted)" font-family="Cascadia Mono, Consolas, monospace">β ${p.alpha}° · k ${k}</text>`;
+  } else {
+    const {s,k}=p; const L=Math.max(28,k*2.6), H=Math.max(22,k*2.2), sw=Math.max(4,s), sb=Math.max(4,s);
+    out+=poly([[-L,0],[L,0],[L,sb],[-L,sb]],"var(--plate)");
+    out+=poly([[-sw/2,0],[sw/2,0],[sw/2,-H],[-sw/2,-H]],"var(--plate)");
+    const sides=joint==="T3"?[1,-1]:[1];
+    let n0=0;
+    sides.forEach((dir,si)=>{
+      const ps=P.filter(q=>q.side===(si?"back":"front"));
+      let acc=0; const tot=ps.reduce((a,q)=>a+q.area,0), ts=[0];
+      ps.forEach(q=>{acc+=q.area; ts.push(k*Math.sqrt(acc/tot));});
+      const cx=dir*sw/2;
+      ps.forEach((q,i)=>{ const a=ts[i], bb=ts[i+1];
+        const shape = a===0? [[cx,0],[cx+dir*bb,0],[cx,-bb]] : [[cx+dir*a,0],[cx+dir*bb,0],[cx,-bb],[cx,-a]];
+        const nidx=P.indexOf(q)+1; out+=poly(shape,col(nidx,q.type),"band");
+        const m=(a+bb)/2; labels.push([cx+dir*m*0.42,-m*0.42,nidx,bb-a]); });
+      out+=`<path d="M ${cx+dir*ts[ts.length-1]} 0 Q ${cx+dir*k*0.62} ${-k*0.62} ${cx} ${-ts[ts.length-1]}" fill="${col(P.indexOf(ps[ps.length-1])+1,'cap')}" stroke="var(--surface)" stroke-width="0.25"/>`;
+    });
+    vb=[-L-3,-H-4,2*L+6,H+sb+8];
+    out+=`<text x="${sw/2+k+2}" y="${-k/2}" font-size="2.6" fill="var(--muted)" font-family="Cascadia Mono, Consolas, monospace">k = ${p.k}</text>`;
+  }
+  const fs = Math.max(1.8, Math.min(3.2, vb[2]/26));
+  labels.forEach(([x,y,n,h])=>{ if(n && h>fs*0.9) out+=`<text x="${x.toFixed(2)}" y="${(y+fs*0.35).toFixed(2)}" font-size="${fs}" text-anchor="middle" font-weight="600" fill="var(--ink)" font-family="Cascadia Mono, Consolas, monospace">${n}</text>`; });
+  $("sketch").innerHTML=`<svg viewBox="${vb.map(n=>n.toFixed(2)).join(" ")}" role="img" aria-label="Сечение шва с порядком проходов">${out}</svg>`;
+}
+
+
+// ---------- расчёт ----------
+function calc(){
+  const p={ s:+$("s").value||1, alpha:+$("alpha").value||0, b:+$("b").value||0, c:+$("c").value||0,
+    k:+$("k").value||4, seal: (joint==="V" && $("seal").checked) || (joint==="T1" && $("bevel").checked && $("sealT").checked), bevel: joint.startsWith("T") && $("bevel").checked, pos:$("pos").value, wire:+$("wire").value, gas:$("gas").value, len:+$("len").value||1 };
+  syncUI();
+  const m=mat(), c=C();
+  const ch={}; EL.forEach(e=>ch[e]=+$("el_"+e).value||0);
+  const alerts=[];
+  if(joint.startsWith("T") && p.s>8 && !p.bevel) alerts.push(["warn",`При s = ${p.s} мм угловой шов без скоса не даёт полного провара стенки. Для ответственных тавров включите скос кромки (ГОСТ 14771 ${joint==="T3"?"Т8":"Т6"}).`]);
+  if(p.bevel) alerts.push(["ok",`Тавр со скосом кромки${joint==="T3"?" с двух сторон (K-образная, аналог Т8)":(p.seal?" с одной стороны и подваркой с обратной (аналог Т6)":" с одной стороны (аналог Т6)")}: полный провар стенки, корень заваривается первым проходом, сверху усиливающий угловой шов.`]);
+  if(joint==="I" && p.s>8) alerts.push(["bad",`Без скоса кромок металл ${p.s} мм не проваривается. Выберите V- или X-разделку.`]);
+  if(joint==="V" && p.s<4) alerts.push(["warn","При s < 4 мм разделка обычно не нужна: соединение I с зазором."]);
+  if(joint==="X" && p.s<12) alerts.push(["warn","X-разделку обычно применяют от 12 мм; на меньших толщинах рациональнее V."]);
+  if(joint==="X" && p.s>=12) alerts.push(["ok","X-разделка требует примерно вдвое меньше наплавленного металла, чем V той же толщины, и даёт меньшую угловую деформацию."]);
+  if((joint==="V"||joint==="X") && p.c>p.s/2) alerts.push(["bad","Притупление больше половины толщины. Проверьте размеры разделки."]);
+  if(joint.startsWith("T") && !p.bevel && p.k>p.s) alerts.push(["warn",`Катет ${p.k} мм больше толщины ${p.s} мм. Обычно k ≈ 0,7·s, если расчёт прочности не требует иного.`]);
+  if(p.pos==="PF" && p.wire>=1.2 && cls!=="al") alerts.push(["warn","Для PF удобнее проволока 1,0 мм или импульсный режим."]);
+
+  const G=geometry(p);
+  const P=planPasses(p,G).map((q,i)=>regime(q,p,i));
+  const Qmin=Math.min(...P.map(q=>q.Q)), Qmax=Math.max(...P.map(q=>q.Q));
+
+  // подогрев и предупреждения по материалу
+  let phText, phNote;
+  if(cls==="steel"){
+    const ph=preheatSteel(ch,p.s,Qmin), minPh=+m.ph||0;
+    if(m.note) alerts.push(["bad",`${esc(m.n)}: ${esc(m.note)}`]);
+    else if(ph.CEV>0.45) alerts.push(["bad",`CEV = ${f2(ph.CEV)}: сталь склонна к холодным трещинам. Нужна аттестованная технология и контроль межпроходной температуры.`]);
+    if(!ph.valid && p.s>=10 && !minPh) alerts.push(["warn","Подогрев рассчитан за пределами области применимости метода CET (CET 0,20–0,50; Q 0,5–4 кДж/мм). Считайте значение оценкой."]);
+    const Tcalc = (ph.Tp<=20 || (p.s<10 && ph.CEV<0.40)) ? 0 : Math.ceil(ph.Tp/10)*10;
+    const T=Math.max(Tcalc,minPh);
+    phText = T ? `${T}<small>°C</small>` : "не нужен";
+    phNote = minPh>Tcalc ? `минимум по справочнику · CET ${f2(ph.CET)}` : (T?`расчёт ${f0(ph.Tp)} °C · CET ${f2(ph.CET)}`:`CEV ${f2(ph.CEV)} · CET ${f2(ph.CET)}`);
+  } else if(cls==="ss"){
+    phText="не нужен"; phNote=`межпроходная ≤ ${c.ip} °C`;
+    if(m.note) alerts.push(["warn",`${esc(m.n)}: ${esc(m.note)}`]);
+    if(Qmax>1.5 && !/дуплекс/i.test(m.note||"")) alerts.push(["warn",`Q до ${f2(Qmax)} кДж/мм. Для аустенитной стали держите Q ≤ 1,5 кДж/мм: выше растёт риск горячих трещин и потери коррозионной стойкости.`]);
+    alerts.push(["ok","Нержавеющая сталь: защитите корень формирующим газом (Ar или N₂+H₂), зачищайте только нержавеющими щётками, после сварки — травление и пассивация."]);
+  } else {
+    const minPh=+m.ph||0;
+    if(p.s>=15 || minPh){ phText = minPh?`${minPh}<small>°C</small>`:"60–100<small>°C</small>"; phNote=`межпроходная ≤ ${c.ip} °C`; }
+    else { phText="не нужен"; phNote=p.s>=8?"просушка кромок до 50–60 °C":`межпроходная ≤ ${c.ip} °C`; }
+    if(m.note) alerts.push(["warn",`${esc(m.n)}: ${esc(m.note)}`]);
+    alerts.push(["ok","Алюминий: удалите оксидную плёнку нержавеющей щёткой непосредственно перед сваркой, обезжирьте кромки. Горелка — углом вперёд, тефлоновый канал и U-образные ролики подающего механизма."]);
+    if(p.s>=10 && p.gas==="I1") alerts.push(["warn","Для толщин от 10 мм лучше газ I3 (Ar+He): глубже провар и меньше пор."]);
+  }
+
+  // расход
+  const mDep=G.A*c.rho;                 // г/м
+  const gr=gasRow(p.gas);
+  const yieldK=c.yield*(p.gas==="C1"?0.93:1);
+  const wireKg=mDep/yieldK/1000;        // кг/м
+  const arcMin=P.reduce((a,q)=>a+1000/q.v,0); // мин/м
+  const flow=+gr[2]||15;
+  const gasL=arcMin*flow;
+
+  const gkey = joint==="I" ? (G.two?"I2":"I1") : (G.bev ? joint+"b" : joint);
+  $("summary").innerHTML=[
+    ["Проходов", `${P.length}`, joint==="X"||joint==="T3"||(joint==="I"&&G.two)||G.backA?"с двух сторон":"с одной стороны"],
+    ["Площадь шва", `${f0(G.A)}<small>мм²</small>`, `аналог ГОСТ 14771: ${GOST[gkey]}`],
+    ["Погонная энергия", `${f2(Qmin)}–${f2(Qmax)}<small>кДж/мм</small>`, "по EN 1011-1, k = 0,8"],
+    ["Подогрев", phText, phNote],
+    ["Проволока", `${f2(wireKg*p.len)}<small>кг</small>`, `${f2(wireKg)} кг/м`],
+    ["Газ", `${f0(gasL*p.len)}<small>л</small>`, `${flow} л/мин`],
+    ["Время горения дуги", `${f1(arcMin*p.len)}<small>мин</small>`, `${f1(arcMin)} мин/м`]
+  ].map(([k,v,n])=>`<div class="kv"><span class="k">${k}</span><span class="v">${v}</span><span class="n">${n}</span></div>`).join("");
+
+  $("alerts").innerHTML=alerts.map(([t,m])=>`<div class="alert ${t==="bad"?"bad":t==="ok"?"ok":""}">${m}</div>`).join("");
+
+  const TN={seal:"Подварочный",root:"Корневой",fill:"Заполняющий",cap:"Облицовочный",single:"Однопроходный",back:"Обратная сторона"};
+  const SN={front:"лицевая",back:"обратная",root:"корень"};
+  const adm=isAdmin();
+  $("passes").innerHTML=`<thead><tr><th>№</th><th>Проход</th><th>I, А</th><th>U, В</th><th>Vпп, м/мин</th><th>Vсв, см/мин</th><th>Q, кДж/мм</th><th>S, мм²</th></tr></thead><tbody>`+
+    P.map((q,i)=>{
+      const col = q.type==="seal"?"var(--steel)":q.type==="root"?"var(--root)":((i+1)%2?"var(--weld2)":"var(--weld1)");
+      const note=[SN[q.side], q.weave?"с колебаниями":"ниточный", q.mode].join(" · ");
+      const vWarn = q.v<150 ? ` style="color:var(--warn)"` : "";
+      const o=OVR[i]||{};
+      const Icell = adm ? `<input class="ov ${o.I?"set":""}" type="number" step="5" min="30" max="500" data-i="${i}" data-f="I" value="${Math.round(q.I/5)*5}" aria-label="Ток прохода ${i+1}">` : `${Math.round(q.I/5)*5}`;
+      const Ucell = adm ? `<input class="ov ${o.U?"set":""}" type="number" step="0.1" min="10" max="45" data-i="${i}" data-f="U" value="${q.U.toFixed(1)}" aria-label="Напряжение прохода ${i+1}">` : `${f1(q.U)}`;
+      return `<tr><td><span class="dot" style="background:${col}"></span>${i+1}</td><td class="t">${TN[q.type]}<span class="m">${note}</span></td><td>${Icell}</td><td>${Ucell}</td><td>${f1(q.w)}</td><td${vWarn}>${f0(q.v/10)}</td><td>${f2(q.Q)}</td><td>${f0(q.area)}</td></tr>`;
+    }).join("")+`</tbody>`;
+  $("passes").querySelectorAll("input.ov").forEach(inp=>inp.addEventListener("change",()=>{
+    const i=+inp.dataset.i, f=inp.dataset.f, v=+inp.value; OVR[i]=OVR[i]||{}; if(v>0) OVR[i][f]=v; else delete OVR[i][f]; calc();
+  }));
+  $("ovBar").hidden = !P.some(q=>q.manual);
+
+  const backNote = P.some(q=>q.type==="back"||q.type==="seal") && joint!=="I" ? " Перед первым проходом с обратной стороны корень вышлифовывается до чистого металла." : "";
+  const stick = cls==="al" ? "вылет 15–20 мм" : "вылет 12–15 мм для короткой дуги и 15–20 мм для струйного переноса";
+  $("transfer").textContent=`Проволока ${m.wire}, ${String(p.wire).replace(".",",")} мм; ${stick}.${backNote}`;
+  $("sketchCap").innerHTML=`<span class="tag">${esc(m.n)}</span> <span class="tag">s ${p.s} мм</span> <span class="tag">${p.pos}</span> Схема условная: показывает порядок и примерное распределение металла.`;
+  drawSketch(p,G,P);
+  renderRef(p,P,m);
+  const JN={I:"I-стык без скоса",V:"V-разделка, односторонняя"+(p.seal?", с подваркой":""),X:"X-разделка, двусторонняя",T1:"Тавр, один шов"+(p.bevel?", скос кромки":"")+(p.seal?", с подваркой":""),T3:"Тавр, два шва"+(p.bevel?", K-скос":"")};
+  const geo = joint.startsWith("T") ? (p.bevel?`β ${p.alpha}°, b ${p.b}, c ${p.c}, k ${p.k} мм`:`k ${p.k} мм`) : (joint==="I"?`b ${p.b} мм`:`α ${p.alpha}°, b ${p.b}, c ${p.c} мм`);
+  const chemTxt = cls==="steel" ? ` (C ${$("el_C").value}, Mn ${$("el_Mn").value})` : "";
+  $("printIn").innerHTML=`${CLS_N[cls]} <b>${esc(m.n)}</b>${chemTxt} · s <b>${p.s} мм</b> · <b>${JN[joint]}</b> (${geo}) · положение <b>${p.pos}</b> · ${esc(c.proc)} · проволока <b>${esc(m.wire)}, ${String(p.wire).replace(".",",")} мм</b> · газ <b>${esc(p.gas)}</b> · длина шва <b>${p.len} м</b>${P.some(q=>q.manual)?" · <b>режимы скорректированы администратором</b>":""}`;
+}
+$("ovReset").addEventListener("click",()=>{ OVR={}; calc(); });
+
+// ---------- база EWM ----------
+const EWM = JSON.parse(document.getElementById("ewmData").textContent);
+const LN = {root:"Корень",fill:"Заполн.",cap:"Облиц.",single:"Один проход","":"—"};
+const rr = a => !a ? "—" : (a[0]===a[1] ? fmtN(a[0]) : fmtN(a[0])+"–"+fmtN(a[1]));
+const fmtN = x => (Math.round(x*100)/100).toLocaleString("ru-RU");
+const mid = a => a ? (a[0]+a[1])/2 : null;
+function renderRef(p,P,m){
+  const fillet = joint.startsWith("T"), k = fillet ? "F" : "B";
+  const notes=[];
+  const g = String(m.g||"");
+  $("refCount").textContent = `${EWM.wps.length} WPS · ${Object.keys(EWM.wpqr).length} WPQR · MAG 135, M21, S235/S355`;
+  if(cls!=="steel"){
+    $("refNote").innerHTML=`<div class="alert">В базе EWM только WPS для углеродистых сталей групп 1.1–1.2. Для группы «${CLS_N[cls]}» аттестованных WPS в программе нет: режимы — расчётные, их нужно подтвердить своей аттестацией (ISO 15614-${cls==="al"?"2":"1"}).</div>`;
+    $("refList").innerHTML=""; return;
+  }
+  const covered = /^1\.[12]$/.test(g);
+  if(!covered) notes.push(["bad",`${esc(m.n)} (группа ${esc(g||"не указана")}) не входит в группы 1.1–1.2 по ISO/TR 15608. WPQR из базы EWM на эту сталь не распространяются.`]);
+  if(p.bevel) notes.push(["warn","В базе EWM нет тавров со скосом кромки. Показаны WPS угловых швов как ориентир по режимам; для Т6/Т8 нужна своя аттестация."]);
+  if(joint==="X") notes.push(["warn","В базе есть только односторонняя V-разделка. Для X-разделки нужна своя аттестация."]);
+  if(joint==="I" && p.s>4) notes.push(["warn","В базе стыковые WPS выполнены с V-разделкой; для I-стыка подходят только как ориентир."]);
+  let pool = EWM.wps.filter(w=>w.k===k);
+  const posPool = pool.filter(w=>w.pos===p.pos);
+  if(!posPool.length) notes.push(["warn",`Для положения ${p.pos} в базе нет WPS этого типа соединения. Показаны ближайшие из других положений.`]);
+  const score = w => Math.abs(Math.log((w.t||1)/p.s))*2 + (w.pos===p.pos?0:3) + (w.d===p.wire?0:0.6) + (w.ps.length>1 === P.length>1 ? 0 : 0.4);
+  const list = pool.map(w=>({w,sc:score(w)})).sort((a,b)=>a.sc-b.sc).slice(0,3);
+  $("refNote").innerHTML = notes.map(([t,m])=>`<div class="alert ${t==="bad"?"bad":""}">${m}</div>`).join("");
+  const calcI = P.filter(q=>q.type!=="root").map(q=>q.I), calcQ = P.map(q=>q.Q);
+  $("refList").innerHTML = list.map(({w},i)=>{
+    const qs = w.wpqr.map(n=>EWM.wpqr[n]).filter(Boolean);
+    const inT = qs.some(q=>q.tmin!=null && p.s>=q.tmin && (q.tmax==null || p.s<=q.tmax));
+    const rangeT = qs.map(q=>q.tmax!=null?`${fmtN(q.tmin)}–${fmtN(q.tmax)}`:`от ${fmtN(q.tmin)}`).join(", ");
+    const qr = qs.find(q=>q.qmin!=null);
+    const chips = [
+      w.pos===p.pos ? `<span class="chip ok">${w.pos}</span>` : `<span class="chip warn">${w.pos} ≠ ${p.pos}</span>`,
+      inT ? `<span class="chip ok">s в области ${rangeT} мм</span>` : `<span class="chip bad">s вне области ${rangeT} мм</span>`,
+      w.d===p.wire ? "" : `<span class="chip warn">проволока ${fmtN(w.d)}</span>`,
+      !covered ? `<span class="chip bad">другая группа стали</span>` : ""
+    ].join(" ");
+    const refFill = w.ps.filter(x=>x[1]!=="root").map(x=>mid(x[4])).filter(Boolean);
+    const rI = refFill.length ? Math.round(refFill.reduce((a,b)=>a+b,0)/refFill.length) : null;
+    const cI = calcI.length ? Math.round(calcI.reduce((a,b)=>a+b,0)/calcI.length) : null;
+    const rows = w.ps.map(x=>`<tr><td>${x[0]}</td><td class="t">${LN[x[1]]||"—"}<span class="m">${x[2]}${x[9]?" · job "+x[9]:""}</span></td><td>${rr(x[4])}</td><td>${rr(x[5])}</td><td>${x[6]!=null?fmtN(x[6]):"—"}</td><td>${rr(x[7])}</td><td>${rr(x[8])}</td></tr>`).join("");
+    return `<article class="wps ${i===0?"best":""}">
+      <h3>${w.n} ${i===0?'<span class="chip n">ближайшая</span>':""}</h3>
+      <div>${chips}</div>
+      <div class="meta"><span>${w.mat} · s ${fmtN(w.t)} мм · ${w.ps.length} ${w.ps.length===1?"проход":"прох."}${w.bead?" · "+(w.bead==="Pendelraupe"?"с колебаниями":"ниточный"):""}</span>
+      <span>WPQR ${w.wpqr.join(", ")}${qr?` · Q ${fmtN(qr.qmin)}${qr.qmax?"–"+fmtN(qr.qmax):""} кДж/мм`:""}${w.ip?` · Tмежпр ≤ ${w.ip} °C`:""}</span>
+      ${qs[0]?`<span>${qs[0].lab} · ${qs[0].basis}</span>`:""}</div>
+      <div class="tablewrap"><table><thead><tr><th>№</th><th>Проход</th><th>I, А</th><th>U, В</th><th>Vпп</th><th>Vсв, см/мин</th><th>Q</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${rI&&cI?`<div class="cmp">Средний ток заполнения: расчёт <b>${cI} А</b>, WPS <b>${rI} А</b> (${cI>rI?"+":""}${Math.round((cI-rI)/rI*100)} %). Расчётные Q: <b>${fmtN(Math.min(...calcQ))}–${fmtN(Math.max(...calcQ))}</b>${qr&&qr.qmax?(Math.max(...calcQ)>qr.qmax||Math.min(...calcQ)<qr.qmin?' <span class="chip warn">вне диапазона WPQR</span>':' <span class="chip ok">в диапазоне WPQR</span>'):""}</div>`:""}
+    </article>`;
+  }).join("");
+}
+
+
+// ---------- роли ----------
+function applyRole(){
+  const adm=isAdmin();
+  $("roleChip").textContent = adm ? "Администратор" : "Пользователь";
+  $("roleChip").classList.toggle("admin",adm);
+  $("btnLogin").hidden = adm; $("btnLogout").hidden = !adm; $("btnDict").hidden = !adm;
+  if(!adm){ $("adminPanel").hidden=true; OVR={}; applyGeoDefaults(); fillChem(); }
+  calc();
+}
+$("btnLogin").addEventListener("click",()=>{ $("loginModal").hidden=false; $("loginErr").textContent=""; $("loginPw").value=""; setTimeout(()=>$("loginPw").focus(),0); });
+$("loginCancel").addEventListener("click",()=>{ $("loginModal").hidden=true; });
+$("loginModal").addEventListener("keydown",e=>{ if(e.key==="Escape") $("loginModal").hidden=true; });
+$("loginForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  if(pwHash($("loginPw").value)===CFG.adminHash){
+    role="admin"; $("loginModal").hidden=true; applyRole();
+    if(CFG.adminHash===pwHash("admin")){ openDict("acc"); $("saveMsg").textContent="Задан заводской пароль. Смените его на вкладке «Доступ»."; $("saveMsg").style.color="var(--warn)"; }
+  } else { $("loginErr").textContent="Неверный пароль."; $("loginPw").select(); }
+});
+$("btnLogout").addEventListener("click",()=>{ role="user"; applyRole(); });
+
+// ---------- справочники (только администратор) ----------
+let DRAFT=null, tab="mat";
+function openDict(t){ DRAFT=clone(CFG); tab=t||tab; $("adminPanel").hidden=false; $("saveMsg").textContent=""; renderTab(); $("adminPanel").scrollIntoView({behavior:"smooth",block:"start"}); }
+$("btnDict").addEventListener("click",()=>{ if($("adminPanel").hidden) openDict(); else $("adminPanel").hidden=true; });
+document.querySelectorAll("#tabs button").forEach(b=>b.addEventListener("click",()=>{ tab=b.dataset.t; renderTab(); }));
+
+const numIn = (path,val,step="any",cls="n") => `<input class="${cls}" type="number" step="${step}" data-p="${path}" value="${val??""}">`;
+function setPath(obj,path,val){ const ks=path.split("."); let o=obj; for(let i=0;i<ks.length-1;i++){ o=o[ks[i]]; } o[ks[ks.length-1]]=val; }
+
+function renderTab(){
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===tab));
+  const T=$("tabBody");
+  if(tab==="mat"){
+    const rows=DRAFT.materials.map((m,i)=>`<tr>
+      <td><input class="w" type="text" data-p="materials.${i}.n" value="${esc(m.n)}"></td>
+      <td class="cls"><select data-p="materials.${i}.cls">${Object.entries(CLS_N).map(([k,v])=>`<option value="${k}" ${m.cls===k?"selected":""}>${v}</option>`).join("")}</select></td>
+      <td><input type="text" data-p="materials.${i}.g" value="${esc(m.g)}" style="width:56px"></td>
+      <td><input class="w" type="text" data-p="materials.${i}.wire" value="${esc(m.wire)}"></td>
+      ${EL.map(e=>`<td>${m.cls==="steel"?numIn(`materials.${i}.${e}`,m[e],"0.01"):"—"}</td>`).join("")}
+      <td>${numIn(`materials.${i}.ph`,m.ph,"10")}</td>
+      <td><input class="w" type="text" data-p="materials.${i}.note" value="${esc(m.note)}" placeholder="предупреждение в расчёте"></td>
+      <td><button type="button" class="del" data-del="${i}" title="Удалить марку" aria-label="Удалить ${esc(m.n)}">×</button></td></tr>`).join("");
+    T.innerHTML=`<p class="clsnote">Марки, проволока по умолчанию, группа по ISO/TR 15608, химсостав (для сталей), минимальный подогрев и текст предупреждения. Пустой подогрев — расчёт по CET.</p>
+      <div class="tablewrap"><table class="dict"><thead><tr><th>Марка</th><th>Группа материала</th><th>ISO 15608</th><th>Проволока</th>${EL.map(e=>`<th>${e}</th>`).join("")}<th>Подогрев, °C</th><th>Примечание</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div><button type="button" class="btn ghost" id="addMat">Добавить марку</button></div>`;
+    $("addMat").addEventListener("click",()=>{ DRAFT.materials.push({id:"m"+Date.now(),n:"Новая марка",cls,g:"",wire:"",C:0,Mn:0,Cr:0,Mo:0,V:0,Ni:0,Cu:0,ph:"",note:""}); renderTab(); });
+    T.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{ DRAFT.materials.splice(+b.dataset.del,1); renderTab(); }));
+  }
+  if(tab==="reg"){
+    T.innerHTML=`<p class="clsnote">Токи по положениям, корневой проход, синергетика <code>Vпп = a·I + b</code>, <code>U = c + e·I</code>, площадь корня и коэффициент площади прохода для каждого диаметра. Ниже — общие параметры группы материала.</p>`+
+    Object.entries(DRAFT.classes).map(([k,c])=>`<div class="cbox"><h4>${CLS_N[k]} · ${esc(c.proc)}</h4>
+      <div class="kvgrid">
+        <label>Процесс<input type="text" data-p="classes.${k}.proc" value="${esc(c.proc)}"></label>
+        <label>Плотность, г/см³${numIn(`classes.${k}.rho`,c.rho,"0.01","")}</label>
+        <label>Коэф. использования${numIn(`classes.${k}.yield`,c.yield,"0.01","")}</label>
+        <label>Межпроходная, °C<input type="text" data-p="classes.${k}.ip" value="${esc(c.ip)}"></label>
+        <label>Предел тока на тонком: K·s+40${numIn(`classes.${k}.thinK`,c.thinK,"1","")}</label>
+        ${["PA","PB","PC","PF"].map(ps=>`<label>Площадь прохода ${ps}, мм²${numIn(`classes.${k}.area.${ps}`,c.area[ps],"1","")}</label>`).join("")}
+      </div>
+      <div class="tablewrap"><table class="dict"><thead><tr><th>Ø</th><th>PA</th><th>PB</th><th>PC</th><th>PF</th><th>Корень</th><th>Корень PF</th><th>a</th><th>b</th><th>c</th><th>e</th><th>S корня</th><th>Коэф. S</th></tr></thead><tbody>
+      ${Object.entries(c.d).map(([d,q])=>`<tr><td>${d}</td>${["PA","PB","PC","PF"].map(ps=>`<td>${numIn(`classes.${k}.d.${d}.fill.${ps}`,q.fill[ps],"5")}</td>`).join("")}
+        <td>${numIn(`classes.${k}.d.${d}.root`,q.root,"5")}</td><td>${numIn(`classes.${k}.d.${d}.rootPF`,q.rootPF,"5")}</td>
+        <td>${numIn(`classes.${k}.d.${d}.a`,q.a,"0.0005")}</td><td>${numIn(`classes.${k}.d.${d}.b`,q.b,"0.01")}</td>
+        <td>${numIn(`classes.${k}.d.${d}.uc`,q.uc,"0.05")}</td><td>${numIn(`classes.${k}.d.${d}.ue`,q.ue,"0.0005")}</td>
+        <td>${numIn(`classes.${k}.d.${d}.rootA`,q.rootA,"1")}</td><td>${numIn(`classes.${k}.d.${d}.k`,q.k,"0.05")}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="tablewrap"><table class="dict"><thead><tr><th>Газ</th><th>Название</th><th>Расход, л/мин</th><th>Поправка U, В</th></tr></thead><tbody>
+      ${c.gases.map((g,gi)=>`<tr><td><input type="text" data-p="classes.${k}.gases.${gi}.0" value="${esc(g[0])}" style="width:60px"></td><td><input class="w" type="text" data-p="classes.${k}.gases.${gi}.1" value="${esc(g[1])}"></td><td>${numIn(`classes.${k}.gases.${gi}.2`,g[2],"1")}</td><td>${numIn(`classes.${k}.gases.${gi}.3`,g[3],"0.5")}</td></tr>`).join("")}
+      </tbody></table></div></div>`).join("");
+  }
+  if(tab==="geo"){
+    const J={I:"I · зазор",V:"V-разделка",X:"X-разделка",T:"Тавр со скосом"};
+    T.innerHTML=`<p class="clsnote">Размеры разделки по умолчанию. Пользователь видит их без возможности изменить.</p><div class="cgrid">`+
+    Object.entries(DRAFT.classes).map(([k,c])=>`<div class="cbox"><h4>${CLS_N[k]}</h4>
+      <table class="dict"><thead><tr><th>Соединение</th><th>α / β, °</th><th>b, мм</th><th>c, мм</th></tr></thead><tbody>
+      ${Object.entries(c.geo).map(([j,g])=>`<tr><td>${J[j]}</td><td>${j==="I"?"—":numIn(`classes.${k}.geo.${j}.alpha`,g.alpha,"1")}</td><td>${numIn(`classes.${k}.geo.${j}.b`,g.b,"0.5")}</td><td>${j==="I"?"—":numIn(`classes.${k}.geo.${j}.c`,g.c,"0.5")}</td></tr>`).join("")}
+      </tbody></table></div>`).join("")+`</div>`;
+  }
+  if(tab==="acc"){
+    T.innerHTML=`<div class="cbox" style="max-width:420px"><h4>Пароль администратора</h4>
+      <label>Новый пароль<input type="password" id="pw1" autocomplete="new-password"></label>
+      <label>Повторите пароль<input type="password" id="pw2" autocomplete="new-password"></label>
+      <div class="err" id="pwErr"></div>
+      <div><button type="button" class="btn" id="pwSet">Сменить пароль</button></div>
+      <p class="clsnote">Пароль хранится только в виде хеша. После смены нажмите «Сохранить справочники».</p></div>
+      <p class="clsnote">Пользователь выбирает материал, толщину, соединение, катет, положение, диаметр проволоки и газ. Администратор дополнительно меняет размеры разделки, химсостав, режимы проходов и все справочники.</p>`;
+    $("pwSet").addEventListener("click",()=>{ const a=$("pw1").value, b=$("pw2").value;
+      if(a.length<4){ $("pwErr").textContent="Не короче 4 символов."; return; }
+      if(a!==b){ $("pwErr").textContent="Пароли не совпадают."; return; }
+      DRAFT.adminHash=pwHash(a); $("pwErr").textContent=""; $("saveMsg").style.color="var(--ok)"; $("saveMsg").textContent="Пароль изменён. Нажмите «Сохранить справочники»."; });
+  }
+  T.querySelectorAll("[data-p]").forEach(inp=>inp.addEventListener("change",()=>{
+    let v=inp.value; if(inp.type==="number") v = v===""?"":+v;
+    setPath(DRAFT,inp.dataset.p,v); if(inp.dataset.p.endsWith(".cls")) renderTab();
+  }));
+}
+function applyCfg(newCfg){
+  const keep=$("steel").value; CFG=newCfg; OVR={};
+  fillMaterials(keep); fillProcess(); applyGeoDefaults(); calc();
+}
+$("btnSave").addEventListener("click",async()=>{
+  try{ const where=await store.save(DRAFT); applyCfg(clone(DRAFT)); $("saveMsg").style.color="var(--ok)"; $("saveMsg").textContent=`Сохранено${where?": "+where:""}.`; }
+  catch(e){ $("saveMsg").style.color="var(--bad)"; $("saveMsg").textContent="Не удалось сохранить: "+(e.message||e); }
+});
+$("btnRevert").addEventListener("click",()=>{ DRAFT=clone(CFG); renderTab(); $("saveMsg").textContent="Изменения отменены."; $("saveMsg").style.color="var(--muted)"; });
+$("btnFactory").addEventListener("click",()=>{ const h=DRAFT.adminHash; DRAFT=clone(FACTORY); DRAFT.adminHash=h; renderTab(); $("saveMsg").style.color="var(--warn)"; $("saveMsg").textContent="Загружены заводские справочники (пароль сохранён). Нажмите «Сохранить», чтобы применить."; });
+// экспорт справочников (администратор) — для передачи коллегам
+const showMsg=(t,c)=>{ $("saveMsg").style.color=c||"var(--ok)"; $("saveMsg").textContent=t; };
+if(pwa || android || (desktop && typeof window.appExport==="function")){
+  $("btnExport").hidden=false;
+  $("btnExport").textContent = (android||pwa) ? "Отправить справочники коллеге" : "Сохранить копию рядом с программой";
+  $("btnExport").addEventListener("click",async()=>{
+    const json=JSON.stringify(CFG,null,1);
+    try{
+      if(pwa){
+        const file=new File([json],"settings.json",{type:"application/json"});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          try{ await navigator.share({files:[file],title:"Справочники «Подбор режимов MIG/MAG»"}); showMsg("Файл settings.json передан."); }
+          catch(e){ if(e.name!=="AbortError") throw e; }
+        } else {
+          const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download="settings.json"; document.body.appendChild(a); a.click(); a.remove();
+          showMsg("Файл settings.json сохранён в загрузки.");
+        }
+      }
+      else if(android){ const r=window.Android.exportFile(json); if(r==="ERR") throw new Error("не удалось записать файл"); showMsg("Файл сохранён: "+r+". Выберите, кому отправить."); }
+      else { const p=await window.appExport(json); showMsg("Копия сохранена: "+p+". Положите её рядом с программой на других компьютерах."); }
+    }catch(e){ showMsg("Не удалось сохранить копию: "+(e.message||e),"var(--bad)"); }
+  });
+}
+
+// загрузка справочников из файла settings.json — доступна всем
+const hdrMsg=(t,c)=>{ $("hdrMsg").style.color=c||"var(--ok)"; $("hdrMsg").textContent=t; clearTimeout(hdrMsg.t); hdrMsg.t=setTimeout(()=>$("hdrMsg").textContent="",8000); };
+$("btnImport").addEventListener("click",()=>{ $("importFile").value=""; $("importFile").click(); });
+$("importFile").addEventListener("change",()=>{
+  const f=$("importFile").files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    try{
+      const obj=JSON.parse(rd.result);
+      if(!obj || !Array.isArray(obj.materials) || !obj.classes) throw new Error("это не файл справочников программы");
+      const merged=mergeCfg(obj);
+      await store.save(merged); applyCfg(merged); DRAFT=clone(CFG); if(!$("adminPanel").hidden) renderTab();
+      hdrMsg(`Справочники загружены из «${f.name}»: ${merged.materials.length} марок.`);
+    }catch(e){ hdrMsg("Не удалось загрузить: "+(e.message||e),"var(--bad)"); }
+  };
+  rd.onerror=()=>hdrMsg("Не удалось прочитать файл.","var(--bad)");
+  rd.readAsText(f,"utf-8");
+});
+
+// ---------- печать ----------
+if(desktop || android || pwa){
+  $("tools").hidden=false;
+  $("btnPdf").addEventListener("click",()=>{ if(android) window.Android.print(); else window.print(); });
+  if(desktop) document.addEventListener("keydown",e=>{ if(e.ctrlKey && (e.key==="s"||e.key==="ы"||e.key==="p"||e.key==="з")){ e.preventDefault(); window.print(); } });
+}
+const stampTag=()=>{ const t=$("tag").value.trim(), d=new Date().toLocaleDateString("ru-RU"); $("printTag").textContent=(t?t+" · ":"")+"расчёт от "+d; };
+$("tag").addEventListener("input",stampTag); stampTag();
+
+// ---------- запуск ----------
+(async()=>{
+  const saved=await store.load();
+  CFG=mergeCfg(saved);
+  if(desktop && typeof window.appInfo==="function"){ try{ $("storeInfo").textContent=await window.appInfo(); }catch(e){} }
+  else $("storeInfo").textContent = (android||pwa) ? "Справочники хранятся в памяти приложения." : "Справочники хранятся в этом браузере.";
+  document.querySelectorAll("#clsSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===cls));
+  fillMaterials(); fillProcess();
+  setJoint("V");
+  applyRole();
+})();
+
+</script>
+</body>
+</html>
